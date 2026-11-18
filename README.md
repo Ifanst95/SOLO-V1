@@ -1,11 +1,20 @@
-<div align="center">
+# SOLO – Sampel Online & LHP Online
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Aplikasi digital untuk inspeksi sampel kemasan, validasi data LHP, verifikasi MTOL otomatis, dan integrasi Google Sheets bagi tim Produksi. Foto LHP, sachet, dan box dipindai dengan Gemini AI Vision untuk mengekstrak nomor batch dan tanggal kedaluwarsa.
 
-  <h1>Built with AI Studio</h2>
+## Teknologi
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+- React 19 + Vite + Tailwind CSS v4 (frontend, `src/`)
+- Netlify Server (Express) untuk API `/api/*` (`netlify/server/index.ts`)
+- Google Gemini via Netlify AI Gateway (tanpa API key manual)
+- Firebase (login & Firestore) dan Google Sheets API di sisi klien
+- Tesseract.js sebagai OCR cadangan di browser
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Menjalankan secara lokal
 
-</div>
+```bash
+npm install
+netlify dev --port 8889
+```
+
+`netlify dev` menyediakan kredensial AI Gateway secara otomatis. Alternatif tanpa Netlify CLI: isi `GEMINI_API_KEY` di `.env.local` lalu jalankan `npm run dev`.

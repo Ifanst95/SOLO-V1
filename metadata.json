@@ -1,0 +1,6 @@
+{
+  "name": "SOLO - Sampel Online & LHP Online",
+  "description": "Sistem digital inspeksi sampel kemasan, validasi data LHP, verifikasi MTOL otomatis, dan integrasi Google Sheets untuk tim Produksi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

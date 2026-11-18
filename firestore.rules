@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow operators and admin to manage samples
+    match /samples/{sampleId} {
+      allow read, write: if true;
+    }
+
+    // Allow operators and admin to manage LHP records
+    match /lhps/{lhpId} {
+      allow read, write: if true;
+    }
+
+    // Master data (MTOL)
+    match /master_data/{docId} {
+      allow read, write: if true;
+    }
+
+    // App settings and configuration
+    match /settings/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

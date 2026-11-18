@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "Sample": {
+      "title": "Sample",
+      "description": "Packaging quality control sample submitted by operator and validated by production admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Unique numeric ID/timestamp of sample" },
+        "at": { "type": "string", "description": "Submission timestamp formatted in Indonesian locale" },
+        "op": { "type": "string", "description": "Operator name" },
+        "pk": { "type": "string", "description": "Packing machine name" },
+        "f1": { "type": "string", "description": "Filling machine 1" },
+        "f2": { "type": "string", "description": "Filling machine 2" },
+        "pd": { "type": "string", "description": "Production date" },
+        "note": { "type": "string", "description": "Treatment note" },
+        "status": { "type": "string", "enum": ["pending", "ok", "nok"] },
+        "validatedAt": { "type": "string", "description": "Validation timestamp" },
+        "syncedToSheets": { "type": "boolean", "description": "Sync status to Google Sheets" }
+      },
+      "required": ["id", "at", "op", "pk", "status"]
+    },
+    "Lhp": {
+      "title": "Lhp",
+      "description": "Production output report (LHP) submitted by packaging line operator",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Unique numeric ID of LHP report" },
+        "at": { "type": "string", "description": "Timestamp" },
+        "b1": { "type": "string", "description": "Batch mixing 1" },
+        "b2": { "type": "string", "description": "Batch mixing 2" },
+        "w1": { "type": "string", "description": "Work order 1" },
+        "w2": { "type": "string", "description": "Work order 2" },
+        "n1": { "type": "string", "description": "Item description 1" },
+        "n2": { "type": "string", "description": "Item description 2" },
+        "ex": { "type": "string", "description": "Expiry date DD MM YY" },
+        "kb": { "type": "string", "description": "Box batch code" },
+        "pr": { "type": "string", "description": "Production date" },
+        "pbe": { "type": "string", "description": "PBE code" },
+        "tt": { "type": "string", "description": "Total output description" },
+        "ct": { "type": "string", "description": "Counter value" },
+        "mtol": { "type": "string", "enum": ["Sesuai", "Cek", "Manual"] }
+      },
+      "required": ["at", "b1", "ex", "kb"]
+    }
+  },
+  "firestore": {
+    "/samples/{sampleId}": {
+      "schema": { "$ref": "#/entities/Sample" },
+      "description": "Stores packaging sample QC documents"
+    },
+    "/lhps/{lhpId}": {
+      "schema": { "$ref": "#/entities/Lhp" },
+      "description": "Stores production output LHP records"
+    }
+  }
+}
