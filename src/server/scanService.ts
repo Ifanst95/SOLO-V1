@@ -113,24 +113,18 @@ export async function handleScanTextRequest(
     }
   }
 
-  const promptText = `Anda adalah spesialis Quality Control (QC) kemasan farmasi dan jamu (Sistem SOLO).
-Tugas Anda: Membaca teks cetakan inkjet dot-matrix pada 7 foto kemasan secara presisi dan mengekstrak nomor batch serta tanggal kedaluwarsa.
+    const promptText = `Anda adalah spesialis Quality Control (QC) kemasan farmasi dan jamu (Sistem SOLO).
+Tugas Anda: Membaca teks cetakan inkjet dot-matrix pada foto-foto kemasan secara presisi dan mengekstrak nomor batch serta tanggal kedaluwarsa.
 
-ATURAN FORMAT VISUAL PRINT:
-1. BATCH NORMAL (1 MESIN):
-   - LHP: FNMB11AA
-   - SACHET: CKR NMB11AA (Event N)
-   - BOX: 11 FEB 24 FNMB11AA
-2. BATCH GABUNGAN (2 ATAU LEBIH MESIN FILLING):
-   - SACHET 1: CKR GMB11AA, SACHET 2: CKR GMB11AB, SACHET 3, SACHET 4
-   - BOX: 11 FEB 24 FGMB11AAAB (Awalan FG, akhiran mesin AAAB)
-3. BATCH GABUNGAN BEDA TANGGAL:
-   - Box memuat kedua tanggal (contoh: FGMB1112AAAB) dan expired date menggunakan tanggal LEBIH AWAL.
-4. BATCH PERBAIKAN:
-   - Event X (contoh: FXMB11AA / CKR XMB11AA).
+ATURAN SUMBER DAN FORMAT EKSTRAKSI:
+1. No Batch LHP 1 (b1): Wajib dibaca dari FOTO 1 (LHP 1) yaitu batch mixing, contoh : FNQK11AA.
+2. No Batch LHP 2 (b2): Wajib dibaca dari FOTO 2 (LHP 2) yaitu batch mixing, contoh : FNQK11AB.
+3. Kode Batch Box (kb): Wajib dibaca dari FOTO BOX/DUS (Foto 7 / Foto 5), contoh : FGQK17AAAB.
+4. Exp Date Box (ex): Wajib dibaca dari FOTO BOX/DUS (Foto 7 / Foto 5) dalam format DD MM YY, contoh : 17 11 28.
+5. Sachet Codes (sachetCode1..4): Dibaca dari Foto 3, 4, 5, 6 (sachet filling 1 sampai 4).
 
-TUGAS EKSTRAKSI:
-- b1: No Batch LHP 1 murni dari Foto 1 (tanpa spasi, contoh: FNMB11AA)
+TUGAS EKSTRAKSI JSON:
+- b1: No Batch LHP 1 murni dari Foto 1 (tanpa spasi, contoh: FNQK11AA)
 - w1: WO Mixing LHP 1 jika ada
 - n1: Nama item LHP 1 jika ada
 - b2: No Batch LHP 2 murni dari Foto 2 (tanpa spasi, jika ada)
@@ -144,9 +138,9 @@ TUGAS EKSTRAKSI:
 - sachetExp2: Exp date sachet 2 jika ada
 - sachetExp3: Exp date sachet 3 jika ada
 - sachetExp4: Exp date sachet 4 jika ada
-- kb: Kode Batch Box murni dari Foto 7 (tanpa spasi)
-- ex: Exp Date Box dari Foto 7 (format DD MM YY, contoh: 11 02 24)
-- pr: Prod Date dari Foto 7 jika ada
+- kb: Kode Batch Box murni dari Foto Box/Dus (tanpa spasi, contoh: FGQK17AAAB)
+- ex: Exp Date Box dari Foto Box/Dus (format DD MM YY, contoh: 17 11 28)
+- pr: Prod Date dari Foto Box/Dus jika ada
 - pbe: Kode PBE jika ada
 
 PENTING: Hanya baca dari gambar yang terlampir. Jika foto tidak ada atau tidak terbaca, kembalikan string kosong "" dan jangan mengarang nomor batch.`;

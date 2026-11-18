@@ -489,8 +489,78 @@ export async function scanTextFrom7Photos(
   mtolList: MtolRecord[] = [],
   onProgress?: (step: string, percent: number) => void
 ): Promise<ScanExtractedData> {
+  onProgress?.('Menghubungkan ke Gemini OCR AI (/api/scan-text)...', 25);
 
-  onProgress?.('Memproses Scan Text lokal (Tesseract OCR)...', 30);
+  try {
+    const res = await fetch('/api/scan-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        photoLhp1,
+        photoLhp2,
+        photoSachet1,
+        photoSachet2,
+        photoSachet3,
+        photoSachet4,
+        photoBox,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (data.b1 || data.kb || data.sachetCode1)) {
+        onProgress?.('Analisis OCR AI Selesai!', 100);
+        const evalRes = evaluateVisualPrintCriteria({
+          b1: data.b1 || '',
+          b2: data.b2 || '',
+          sachetCode1: data.sachetCode1 || '',
+          sachetCode2: data.sachetCode2 || '',
+          boxCode: data.kb || '',
+          boxExp: data.ex || '',
+        });
+
+        return {
+          lhp1: data.b1 || '',
+          lhp2: data.b2 || '',
+          sachet1: data.sachetCode1 || '',
+          sachet2: data.sachetCode2 || '',
+          sachet3: data.sachetCode3 || '',
+          sachet4: data.sachetCode4 || '',
+          box: data.kb || '',
+          b1: data.b1 || '',
+          w1: data.w1 || '',
+          n1: data.n1 || '',
+          b2: data.b2 || '',
+          w2: data.w2 || '',
+          n2: data.n2 || '',
+          sachetCode1: data.sachetCode1 || '',
+          sachetCode2: data.sachetCode2 || '',
+          sachetCode3: data.sachetCode3 || '',
+          sachetCode4: data.sachetCode4 || '',
+          sachetExp1: data.sachetExp1 || '',
+          sachetExp2: data.sachetExp2 || '',
+          sachetExp3: data.sachetExp3 || '',
+          sachetExp4: data.sachetExp4 || '',
+          ex: data.ex || '',
+          kb: data.kb || '',
+          pr: data.pr || '',
+          pbe: data.pbe || '',
+          optionsB1: data.b1 ? [data.b1] : [],
+          optionsB2: data.b2 ? [data.b2] : [],
+          optionsKb: data.kb ? [data.kb] : [],
+          batchType: evalRes.detectedType,
+          autoValidationResult: evalRes.isValid ? 'ok' : 'nok',
+          criteriaList: evalRes.criteriaList,
+          engine: data.engine || 'Gemini AI OCR',
+          rawTexts: data.rawTexts || { lhp1: '', lhp2: '', sachet1: '', sachet2: '', sachet3: '', sachet4: '', box: '' },
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Server Gemini OCR request failed, falling back to local Tesseract OCR:', err);
+  }
+
+  onProgress?.('Memproses Scan Text lokal (Tesseract OCR)...', 40);
   const rawTexts = {
     lhp1: await recognizeTextClient(photoLhp1, 5000),
     lhp2: await recognizeTextClient(photoLhp2, 5000),
