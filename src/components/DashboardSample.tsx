@@ -483,8 +483,8 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredQueue.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                  filteredQueue.map((s, idx) => (
+                    <tr key={`${s.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">{s.at}</td>
                       <td className="py-3 px-4 font-semibold text-slate-800 whitespace-nowrap">{s.op}</td>
                       <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">{s.pk}</td>
@@ -495,7 +495,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                         <div className="flex items-center space-x-1">
                           {s.img.slice(0, 5).map((src, i) => (
                             <img
-                              key={i}
+                              key={`thumb-${idx}-${i}`}
                               src={src || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24"%3E%3Crect width="24" height="24" fill="%23334155"/%3E%3C/svg%3E'}
                               alt={`Thumb ${i + 1}`}
                               className="w-6 h-6 object-cover rounded border border-slate-300 bg-slate-900"
@@ -877,9 +877,9 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                 Uji 5 Kriteria SOP Visual Print:
               </span>
               <div className="grid grid-cols-1 gap-2">
-                {autoScanResult.criteriaList.map((crit) => (
+                {autoScanResult.criteriaList.map((crit, idx) => (
                   <div
-                    key={crit.id}
+                    key={`${crit.id}-${idx}`}
                     className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
                       crit.passed
                         ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-100'

@@ -181,7 +181,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onOpenThemeModa
                   type="text"
                   required
                   autoComplete="off"
-                  placeholder="admin"
+                  placeholder="Masukkan username"
                   value={adminUser}
                   onChange={(e) => setAdminUser(e.target.value)}
                   className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none transition-colors"
@@ -197,7 +197,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onOpenThemeModa
                     type={showPassword ? 'text' : 'password'}
                     required
                     autoComplete="new-password"
-                    placeholder="admin123"
+                    placeholder="••••••••"
                     value={adminPass}
                     onChange={(e) => setAdminPass(e.target.value)}
                     className="w-full pl-4 pr-11 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none transition-colors"

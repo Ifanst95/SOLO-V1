@@ -141,4 +141,4 @@ export interface AppDatabase {
 }
 
 export type UserRole = 'operator' | 'admin' | null;
-export type ActiveTab = 'isam' | 'ilhp' | 'stat' | 'dsam' | 'dsbj' | 'mtol' | 'sheets';
+export type ActiveTab = 'isam' | 'ilhp' | 'stat' | 'dsam' | 'dsbj' | 'mtol';

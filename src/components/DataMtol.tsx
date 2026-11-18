@@ -40,21 +40,123 @@ export const DataMtol: React.FC<DataMtolProps> = ({ mtolData, onUpdateMtol }) =>
             ? v.toISOString().slice(0, 10)
             : String(v ?? '').trim();
 
-        const parsed: MtolRecord[] = rows
-          .filter((r) => formatStr(r['BATCH NO'] || r['BATCH_NO'] || r['wo']))
-          .map((r) => ({
-            tgl: formatStr(r['PLAN START DATE'] || r['PLAN_START_DATE'] || r['tgl']),
-            wo: formatStr(r['BATCH NO'] || r['BATCH_NO'] || r['wo']),
-            code: formatStr(r['ITEM CODE'] || r['ITEM_CODE'] || r['code']),
-            item: formatStr(r['ITEM DESC'] || r['ITEM_DESC'] || r['item']),
-            lot: formatStr(r['LOT NUMBER'] || r['LOT_NUMBER'] || r['lot']),
-            st: formatStr(r['STATUS'] || r['st']),
-          }));
+        let parsed: MtolRecord[] = [];
+
+        // Method 1: Object rows with fuzzy synonyms prioritizing exact BATCH NO and ITEM DESC
+        if (rows && rows.length > 0) {
+          parsed = rows
+            .map((r) => {
+              const keys = Object.keys(r);
+              const findKey = (synonyms: string[]) => {
+                for (const s of synonyms) {
+                  const exact = keys.find((k) => k.trim().toUpperCase() === s.toUpperCase());
+                  if (exact !== undefined) return r[exact];
+                }
+                for (const s of synonyms) {
+                  const normS = s.toUpperCase().replace(/[\s_-]/g, '');
+                  const normFound = keys.find(
+                    (k) => k.trim().toUpperCase().replace(/[\s_-]/g, '') === normS
+                  );
+                  if (normFound !== undefined) return r[normFound];
+                }
+                for (const s of synonyms) {
+                  const found = keys.find((k) => k.trim().toUpperCase().includes(s.toUpperCase()));
+                  if (found !== undefined) return r[found];
+                }
+                return '';
+              };
+
+              const tglVal = findKey(['PLAN START DATE', 'PLAN_START_DATE', 'TGL', 'TANGGAL', 'DATE', 'WAKTU']);
+              const woVal = findKey(['BATCH NO', 'BATCH_NO', 'NO BATCH', 'NO_BATCH', 'BATCH', 'WO', 'ORDER']);
+              const codeVal = findKey(['ITEM CODE', 'ITEM_CODE', 'KODE ITEM', 'CODE', 'KODE', 'MATERIAL']);
+              const itemVal = findKey(['ITEM DESC', 'ITEM_DESC', 'NAMA ITEM', 'DESCRIPTION', 'DESKRIPSI', 'ITEM', 'NAMA PRODUK']);
+              const lotVal = findKey(['LOT NUMBER', 'LOT_NUMBER', 'NO LOT', 'LOT', 'BATCH LHP', 'BATCH_LHP']);
+              const stVal = findKey(['STATUS', 'ST', 'STATE']);
+
+              return {
+                tgl: formatStr(tglVal),
+                wo: formatStr(woVal),
+                code: formatStr(codeVal),
+                item: formatStr(itemVal),
+                lot: formatStr(lotVal),
+                st: formatStr(stVal) || 'RELEASED',
+              };
+            })
+            .filter((r) => r.wo || r.lot || r.item || r.code);
+        }
+
+        // Method 2: Fallback to array-of-arrays (positional / raw rows) with dynamic header column detection
+        if (parsed.length === 0) {
+          const rawRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
+          if (rawRows && rawRows.length > 0) {
+            let headerRowIdx = -1;
+            let batchNoCol = 1;
+            let itemDescCol = 3;
+            let lotCol = 4;
+            let codeCol = 2;
+            let dateCol = 0;
+            let statusCol = 5;
+
+            for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+              const row = rawRows[i];
+              if (!row) continue;
+              const rowStrs = row.map((c: any) => String(c).trim().toUpperCase());
+              
+              const bIdx = rowStrs.findIndex((s) => s.includes('BATCH NO') || s.includes('BATCH_NO') || s === 'BATCH' || s === 'WO' || s.includes('NO BATCH'));
+              const iIdx = rowStrs.findIndex((s) => s.includes('ITEM DESC') || s.includes('ITEM_DESC') || s === 'ITEM' || s.includes('DESCRIPTION') || s.includes('NAMA ITEM'));
+
+              if (bIdx !== -1 || iIdx !== -1) {
+                headerRowIdx = i;
+                if (bIdx !== -1) batchNoCol = bIdx;
+                if (iIdx !== -1) itemDescCol = iIdx;
+                
+                const lIdx = rowStrs.findIndex((s) => s.includes('LOT') || s.includes('BATCH LHP'));
+                if (lIdx !== -1) lotCol = lIdx;
+
+                const cIdx = rowStrs.findIndex((s) => s.includes('CODE') || s.includes('KODE'));
+                if (cIdx !== -1) codeCol = cIdx;
+
+                const dIdx = rowStrs.findIndex((s) => s.includes('DATE') || s.includes('TANGGAL') || s.includes('TGL'));
+                if (dIdx !== -1) dateCol = dIdx;
+
+                const sIdx = rowStrs.findIndex((s) => s.includes('STATUS'));
+                if (sIdx !== -1) statusCol = sIdx;
+
+                break;
+              }
+            }
+
+            const startIdx = headerRowIdx !== -1 ? headerRowIdx + 1 : 1;
+
+            for (let i = startIdx; i < rawRows.length; i++) {
+              const cols = rawRows[i];
+              if (!cols || cols.every((c: any) => String(c).trim() === '')) continue;
+
+              const tgl = formatStr(cols[dateCol] || cols[0] || '');
+              const wo = formatStr(cols[batchNoCol] || cols[1] || cols[0] || '');
+              const code = formatStr(cols[codeCol] || cols[2] || '');
+              const item = formatStr(cols[itemDescCol] || cols[3] || cols[1] || 'Produk Umum');
+              const lot = formatStr(cols[lotCol] || cols[4] || wo);
+              const st = formatStr(cols[statusCol] || 'RELEASED');
+
+              if (wo || lot || item || code) {
+                parsed.push({
+                  tgl: tgl.length >= 8 ? tgl : new Date().toISOString().slice(0, 10),
+                  wo: wo || lot || 'WO-' + i,
+                  code: code || '-',
+                  item: item || 'Produk MTOL',
+                  lot: lot || wo || '-',
+                  st: st || 'RELEASED',
+                });
+              }
+            }
+          }
+        }
 
         if (parsed.length === 0) {
           setMsg({
             type: 'err',
-            text: 'Format file tidak sesuai. Kolom "BATCH NO" tidak ditemukan dalam baris data.',
+            text: 'Gagal membaca data dari file. Pastikan file Excel berisi data baris yang valid.',
           });
           return;
         }
@@ -222,42 +324,24 @@ export const DataMtol: React.FC<DataMtolProps> = ({ mtolData, onUpdateMtol }) =>
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-4">Tgl Plan</th>
-                <th className="py-3 px-4">BATCH NO (WO Mixing)</th>
-                <th className="py-3 px-4">LOT NUMBER (Batch LHP)</th>
-                <th className="py-3 px-4">ITEM CODE</th>
-                <th className="py-3 px-4">ITEM DESC (Nama Produk)</th>
-                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4">BATCH NO</th>
+                <th className="py-3 px-4">ITEM DESC</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredMtol.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={2} className="py-12 text-center text-slate-400">
                     Tidak ada data MTOL yang sesuai.
                   </td>
                 </tr>
               ) : (
                 filteredMtol.map((r, i) => (
-                  <tr key={i} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
-                      {r.tgl || '-'}
-                    </td>
+                  <tr key={`${r.wo}-${r.lot}-${i}`} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 font-mono font-bold text-teal-800 whitespace-nowrap">
                       {r.wo}
                     </td>
-                    <td className="py-3 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">
-                      {r.lot}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-slate-600 whitespace-nowrap">
-                      {r.code || '-'}
-                    </td>
                     <td className="py-3 px-4 font-medium text-slate-900">{r.item}</td>
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
-                        {r.st || 'RELEASED'}
-                      </span>
-                    </td>
                   </tr>
                 ))
               )}

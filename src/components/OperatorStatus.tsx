@@ -127,8 +127,8 @@ export const OperatorStatus: React.FC<OperatorStatusProps> = ({ samples }) => {
                   </td>
                 </tr>
               ) : (
-                filteredSamples.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                filteredSamples.map((s, idx) => (
+                  <tr key={`${s.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
                       {s.at}
                     </td>

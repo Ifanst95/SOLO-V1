@@ -489,6 +489,7 @@ export async function scanTextFrom7Photos(
   mtolList: MtolRecord[] = [],
   onProgress?: (step: string, percent: number) => void
 ): Promise<ScanExtractedData> {
+
   onProgress?.('Memproses Scan Text lokal (Tesseract OCR)...', 30);
   const rawTexts = {
     lhp1: await recognizeTextClient(photoLhp1, 5000),
@@ -502,15 +503,47 @@ export async function scanTextFrom7Photos(
 
   onProgress?.('Menganalisis hasil scan text...', 85);
 
-  const cleanB1 = cleanBatchToken(rawTexts.lhp1.match(/F[A-Z0-9]{6,12}/)?.[0] || rawTexts.lhp1.replace(/\s+/g, '').slice(0, 12) || '');
-  const cleanB2 = cleanBatchToken(rawTexts.lhp2.match(/F[A-Z0-9]{6,12}/)?.[0] || rawTexts.lhp2.replace(/\s+/g, '').slice(0, 12) || '');
+  const extractBatchFromLhpText = (text: string): string => {
+    if (!text) return '';
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const upper = line.toUpperCase();
+      if (
+        upper.includes('BATCH') ||
+        upper.includes('MIXING') ||
+        upper.includes('WO') ||
+        upper.includes('NO') ||
+        upper.includes('NOMOR')
+      ) {
+        const match = line.match(/(?:F|[A-Z0-9])[A-Z0-9]{5,14}/i);
+        if (match) {
+          const cleaned = cleanBatchToken(match[0]);
+          if (cleaned.length >= 5) return cleaned;
+        }
+      }
+    }
+    const matchAll = text.match(/(?:F|[A-Z0-9])[A-Z0-9]{5,14}/);
+    if (matchAll) {
+      return cleanBatchToken(matchAll[0]);
+    }
+    return cleanBatchToken(text.replace(/\s+/g, '').slice(0, 14));
+  };
+
+  const cleanB1 = extractBatchFromLhpText(rawTexts.lhp1);
+  const cleanB2 = extractBatchFromLhpText(rawTexts.lhp2);
   const cleanS1 = cleanBatchToken(rawTexts.sachet1.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet1.replace(/\s+/g, '').slice(0, 14) || '');
   const cleanS2 = cleanBatchToken(rawTexts.sachet2.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet2.replace(/\s+/g, '').slice(0, 14) || '');
   const cleanS3 = cleanBatchToken(rawTexts.sachet3.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet3.replace(/\s+/g, '').slice(0, 14) || '');
   const cleanS4 = cleanBatchToken(rawTexts.sachet4.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet4.replace(/\s+/g, '').slice(0, 14) || '');
-  const cleanKb = cleanBatchToken(rawTexts.box.match(/F[A-Z0-9]{6,14}/)?.[0] || rawTexts.box.replace(/\s+/g, '').slice(0, 14) || '');
+  const cleanKb = cleanBatchToken(
+    rawTexts.box.match(/(?:F|FG|FL|[A-Z0-9])[A-Z0-9]{5,14}/)?.[0] ||
+    rawTexts.box.replace(/\s+/g, '').slice(0, 14) || ''
+  );
 
-  const dateMatch = rawTexts.box.match(/\b\d{2}[\s./-]\d{2}[\s./-]\d{2,4}\b/)?.[0] || rawTexts.box.match(/\d{6,8}/)?.[0] || '';
+  const dateMatch =
+    rawTexts.box.match(/\b\d{2}[\s./-](?:JAN|FEB|MAR|APR|MEI|JUN|JUL|AGU|SEP|OKT|NOV|DES|\d{2})[\s./-]\d{2,4}\b/i)?.[0] ||
+    rawTexts.box.match(/\b\d{2}[\s./-]\d{2}[\s./-]\d{2,4}\b/)?.[0] ||
+    rawTexts.box.match(/\d{6,8}/)?.[0] || '';
   const cleanEx = formatDateString(dateMatch);
 
   const evalRes = evaluateVisualPrintCriteria({
@@ -556,7 +589,7 @@ export async function scanTextFrom7Photos(
     batchType: evalRes.detectedType,
     autoValidationResult: evalRes.isValid ? 'ok' : 'nok',
     criteriaList: evalRes.criteriaList,
-    engine: 'Scan Text (Local)',
+    engine: 'Scan Text (Local Tesseract)',
     rawTexts,
   };
 }

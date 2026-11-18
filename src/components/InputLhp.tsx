@@ -596,11 +596,11 @@ export const InputLhp: React.FC<InputLhpProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-teal-600" />
                 <span>Pilih Cepat MTOL:</span>
               </span>
-              {mtolData.slice(0, 5).map((r) => {
+              {mtolData.slice(0, 5).map((r, idx) => {
                 const lots = getLots(r);
                 return (
                   <button
-                    key={r.wo}
+                    key={`${r.wo}-${r.lot}-${idx}`}
                     type="button"
                     onClick={() => {
                       setW1(r.wo);

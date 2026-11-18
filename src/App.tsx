@@ -8,8 +8,6 @@ import { DashboardSample } from './components/DashboardSample';
 import { DashboardSbj } from './components/DashboardSbj';
 import { DataMtol } from './components/DataMtol';
 import { ThemeModal } from './components/ThemeModal';
-import { SheetsModal } from './components/SheetsModal';
-import { SheetsDashboard } from './components/SheetsDashboard';
 import { loadDatabase, saveDatabase } from './lib/storage';
 import {
   fetchCloudDatabase,
@@ -19,12 +17,8 @@ import {
   saveMtolToCloud,
   saveConfigToCloud,
 } from './lib/cloudApi';
-import { initAuth, getAccessToken, db as firestoreDb } from './lib/firebase';
+import { initAuth, db as firestoreDb } from './lib/firebase';
 import { onSnapshot, collection, doc } from 'firebase/firestore';
-import {
-  appendSampleToSheet,
-  appendLhpToSheet,
-} from './lib/googleSheets';
 import { playSound } from './lib/sound';
 import { loadTheme, applyTheme } from './lib/theme';
 import {
@@ -44,11 +38,9 @@ export default function App() {
   const [role, setRole] = useState<UserRole>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('isam');
   const [operatorName, setOperatorName] = useState('Operator Shift 1');
-  const [isCloudConnected, setIsCloudConnected] = useState(true);
 
   const [theme, setTheme] = useState<ThemeConfig>(() => db.cfg.theme || loadTheme());
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const [isSheetsModalOpen, setIsSheetsModalOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -82,7 +74,6 @@ export default function App() {
 
   useEffect(() => {
     let isMounted = true;
-    setIsCloudConnected(true);
 
     try {
       const unsubSamples = onSnapshot(collection(firestoreDb, 'samples'), (snapshot) => {
@@ -179,23 +170,6 @@ export default function App() {
     setActiveTab('stat');
 
     saveSampleToCloud(sample);
-
-    if (db.cfg.sheetId && db.cfg.autoSyncSheets) {
-      try {
-        const token = await getAccessToken();
-        if (token) {
-          await appendSampleToSheet(token, db.cfg.sheetId, sample);
-          setDb((prev) => ({
-            ...prev,
-            samples: prev.samples.map((s) =>
-              s.id === sample.id ? { ...s, syncedToSheets: true } : s
-            ),
-          }));
-        }
-      } catch (err) {
-        console.warn('Auto-sync sample to sheets failed:', err);
-      }
-    }
   };
 
   const handleSubmitLhp = async (lhp: LhpRecord) => {
@@ -205,23 +179,6 @@ export default function App() {
     setActiveTab('stat');
 
     saveLhpToCloud(lhp);
-
-    if (db.cfg.sheetId && db.cfg.autoSyncSheets) {
-      try {
-        const token = await getAccessToken();
-        if (token) {
-          await appendLhpToSheet(token, db.cfg.sheetId, lhp);
-          setDb((prev) => ({
-            ...prev,
-            lhps: prev.lhps.map((l) =>
-              l.id === lhp.id ? { ...l, syncedToSheets: true } : l
-            ),
-          }));
-        }
-      } catch (err) {
-        console.warn('Auto-sync LHP to sheets failed:', err);
-      }
-    }
   };
 
   const handleValidateSample = async (
@@ -243,7 +200,6 @@ export default function App() {
           other,
           ocr: { ...s.ocr, ...ocrData },
           validatedAt,
-          syncedToSheets: false,
         };
       }
       return s;
@@ -256,20 +212,6 @@ export default function App() {
     );
 
     validateSampleOnCloud(sampleId, status, params, reasons, other, ocrData);
-
-    if (db.cfg.sheetId && db.cfg.autoSyncSheets) {
-      try {
-        const token = await getAccessToken();
-        if (token) {
-          const sample = updatedSamples.find((s) => s.id === sampleId);
-          if (sample) {
-            await appendSampleToSheet(token, db.cfg.sheetId, sample);
-          }
-        }
-      } catch (err) {
-        console.warn('Auto-sync validation to sheets failed:', err);
-      }
-    }
   };
 
   const handleUpdateMtol = (data: MtolRecord[]) => {
@@ -354,9 +296,6 @@ export default function App() {
         onSwitchRole={() => setRole(null)}
         onLogout={() => setRole(null)}
         onOpenThemeModal={() => setIsThemeModalOpen(true)}
-        onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
-        isSheetsConnected={!!db.cfg.sheetId}
-        isCloudConnected={isCloudConnected}
       />
 
       <main className="flex-1 p-3 sm:p-6 lg:p-8">
@@ -402,23 +341,10 @@ export default function App() {
             <DashboardSbj
               samples={db.samples}
               lhps={db.lhps}
-              onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
             />
           )}
           {role === 'admin' && activeTab === 'mtol' && (
             <DataMtol mtolData={db.mtol} onUpdateMtol={handleUpdateMtol} />
-          )}
-          {role === 'admin' && activeTab === 'sheets' && (
-            <SheetsDashboard
-              config={db.cfg}
-              onSaveConfig={(newCfg) => {
-                handleUpdateConfig(newCfg);
-                showToast('Pengaturan Google Spreadsheet berhasil disimpan!');
-              }}
-              samples={db.samples}
-              lhps={db.lhps}
-              onShowToast={showToast}
-            />
           )}
         </div>
       </main>
@@ -428,19 +354,6 @@ export default function App() {
         onClose={() => setIsThemeModalOpen(false)}
         currentTheme={theme}
         onSaveTheme={handleSaveTheme}
-      />
-
-      <SheetsModal
-        isOpen={isSheetsModalOpen}
-        onClose={() => setIsSheetsModalOpen(false)}
-        config={db.cfg}
-        onSaveConfig={(newCfg) => {
-          handleUpdateConfig(newCfg);
-          showToast('Pengaturan Google Spreadsheet berhasil disimpan!');
-        }}
-        samples={db.samples}
-        lhps={db.lhps}
-        onSyncSuccess={(msg) => showToast(msg, 'ok')}
       />
     </div>
   );

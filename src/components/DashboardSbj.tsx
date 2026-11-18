@@ -17,16 +17,11 @@ import {
 interface DashboardSbjProps {
   samples: SampleRecord[];
   lhps: LhpRecord[];
-  sheetId?: string;
-  onOpenSheetsModal?: () => void;
-  onSyncSheets?: () => void;
-  isSyncing?: boolean;
 }
 
 export const DashboardSbj: React.FC<DashboardSbjProps> = ({
   samples,
   lhps,
-  onOpenSheetsModal,
 }) => {
   const [activeTab, setActiveTab] = useState<'sbj' | 'lhp'>('sbj');
   const [search, setSearch] = useState('');
@@ -227,16 +222,6 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
             <Table className="w-3.5 h-3.5" />
             <span>{activeTab === 'sbj' ? 'Excel SBJ' : 'Excel LHP'}</span>
           </button>
-          {onOpenSheetsModal && (
-            <button
-              onClick={onOpenSheetsModal}
-              className="flex items-center space-x-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
-              title="Kirim dan sinkronkan data langsung ke Google Spreadsheet online"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Google Spreadsheet</span>
-            </button>
-          )}
           <button
             onClick={activeTab === 'sbj' ? downloadSbjCsv : downloadLhpCsv}
             className="flex items-center space-x-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer"
@@ -322,8 +307,8 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
                         s.at.toLowerCase().includes(term)
                       );
                     })
-                    .map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                    .map((s, idx) => (
+                      <tr key={`${s.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-3 font-mono text-slate-500 whitespace-nowrap">{s.at}</td>
                         <td className="py-3 px-3 font-bold text-slate-900 whitespace-nowrap">{s.pk}</td>
                         <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
@@ -400,7 +385,7 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
                       );
                     })
                     .map((l, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={`${l.id ?? l.b1}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">{l.at}</td>
                         <td className="py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">{l.b1}</td>
                         <td className="py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">{l.b2 || '-'}</td>
