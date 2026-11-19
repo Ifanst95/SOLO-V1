@@ -261,10 +261,14 @@ export function evaluateVisualPrintCriteria(params: {
   b2?: string;
   sachetCode1: string;
   sachetCode2?: string;
+  sachetCode3?: string;
+  sachetCode4?: string;
   boxCode: string;
   boxExp: string;
   sachetExp1?: string;
   sachetExp2?: string;
+  sachetExp3?: string;
+  sachetExp4?: string;
 }): {
   isValid: boolean;
   detectedType: string;
@@ -277,181 +281,106 @@ export function evaluateVisualPrintCriteria(params: {
   const cleanB2 = cleanBatchToken(params.b2 || '');
   const cleanS1 = cleanBatchToken(params.sachetCode1);
   const cleanS2 = cleanBatchToken(params.sachetCode2 || '');
+  const cleanS3 = cleanBatchToken(params.sachetCode3 || '');
+  const cleanS4 = cleanBatchToken(params.sachetCode4 || '');
   const cleanBox = cleanBatchToken(params.boxCode);
   const cleanBoxExp = params.boxExp?.trim() || '';
 
-  const isTwoMachines = Boolean(cleanB2 || cleanS2);
+  const isTwoMachines = Boolean(cleanB2 || cleanS2 || cleanS4);
 
-  // Decompositions
-  const dLhp1 = decomposeBatchCode(cleanB1);
-  const dLhp2 = cleanB2 ? decomposeBatchCode(cleanB2) : null;
-  const dS1 = decomposeBatchCode(cleanS1);
-  const dS2 = cleanS2 ? decomposeBatchCode(cleanS2) : null;
-  const dBox = decomposeBatchCode(cleanBox);
-
-  // Determine Batch Type
-  let detectedType = 'BATCH NORMAL (1 MESIN FILLING)';
-  if (dLhp1?.event === 'X' && !isTwoMachines) {
-    detectedType = 'BATCH PERBAIKAN (1 MESIN FILLING)';
-  } else if (isTwoMachines) {
-    if (dLhp1?.event === 'X' && dLhp2?.event === 'X') {
-      detectedType = 'GABUNGAN PERBAIKAN (2 MESIN FILLING)';
-    } else if (dLhp1?.event === 'X' || dLhp2?.event === 'X') {
-      detectedType = 'BATCH GABUNGAN PERBAIKAN DENGAN NORMAL (2 MESIN FILLING)';
-    } else if (dLhp1?.days[0] && dLhp2?.days[0] && dLhp1.days[0] !== dLhp2.days[0]) {
-      if (dLhp1?.month && dLhp2?.month && dLhp1.month !== dLhp2.month) {
-        detectedType = 'BATCH GABUNGAN 2 MESIN FILLING BEDA TANGGAL DAN BULAN';
-      } else {
-        detectedType = 'BATCH GABUNGAN RUNNING 2 MESIN FILLING BEDA TANGGAL';
-      }
-    } else if (dS1?.event === 'L' || dS2?.event === 'L') {
-      detectedType = 'GANTI ROLL BEDA EXPIRED (2 MESIN FILLING)';
-    } else {
-      detectedType = 'BATCH GABUNGAN RUNNING 2 MESIN FILLING';
-    }
+  let detectedType = isTwoMachines ? 'BATCH GABUNGAN 2 MESIN FILLING' : 'BATCH NORMAL (1 MESIN FILLING)';
+  if (cleanB1.includes('X') || cleanS1.includes('X')) {
+    detectedType = 'BATCH PERBAIKAN';
   }
 
   // 1. Kriteria: Validitas Kode LHP 1
-  const passLhp1 = Boolean(cleanB1 && cleanB1.length >= 6);
+  const passLhp1 = Boolean(cleanB1 && cleanB1.length >= 4);
   criteria.push({
     id: 'crit-lhp1',
     name: '1. Format Kode LHP 1',
     passed: passLhp1,
-    expected: 'F[Event][Thn][Bln][Tgl][Mesin] (cth: FNMB11AA / FXMB11AA)',
+    expected: 'Nomor Batch LHP 1 valid (cth: FNQK11AA)',
     detected: cleanB1 || '(Kosong)',
-    note: passLhp1 ? 'Format nomor batch LHP 1 terbaca valid.' : 'Nomor batch LHP 1 belum terdeteksi.',
+    note: passLhp1 ? 'Nomor batch LHP 1 terbaca valid.' : 'Nomor batch LHP 1 belum terdeteksi.',
   });
 
-  // 2. Kriteria: Kesesuaian Kode Sachet 1 vs LHP 1
-  let passSachet1 = false;
-  let sachet1Note = '';
-  if (dLhp1 && dS1) {
-    const yearMatch = !dLhp1.year || !dS1.year || dLhp1.year === dS1.year;
-    const monthMatch = !dLhp1.month || !dS1.month || dLhp1.month === dS1.month;
-    const dayMatch = !dLhp1.days[0] || !dS1.days[0] || dLhp1.days[0] === dS1.days[0];
-    const machineMatch = cleanS1.includes('AA') || cleanB1.includes(dS1.machines);
-
-    if (isTwoMachines) {
-      // Pada batch gabungan 2 mesin, event sachet 1 harus 'G' (atau 'X' jika perbaikan)
-      const validEvent = dS1.event === 'G' || dS1.event === 'X' || dS1.event === 'L';
-      passSachet1 = yearMatch && monthMatch && dayMatch && validEvent;
-      sachet1Note = passSachet1
-        ? `Sesuai aturan Gabungan: Event Sachet 1 '${dS1.event}', Tgl '${dS1.days[0] || '-'}', Mesin '${dS1.machines}'`
-        : `Event Sachet 1 harus 'G'/'X' pada batch gabungan. Terdeteksi: '${dS1.event}'.`;
-    } else {
-      // 1 Mesin Normal (Event 'N') atau Perbaikan ('X')
-      const expectedEvent = dLhp1.event === 'X' ? 'X' : 'N';
-      const eventMatch = dS1.event === expectedEvent;
-      passSachet1 = yearMatch && monthMatch && dayMatch && eventMatch;
-      sachet1Note = passSachet1
-        ? `Sesuai aturan: Event Sachet '${dS1.event}', Tgl '${dS1.days[0]}', Mesin '${dS1.machines}'`
-        : `Event Sachet 1 harus '${expectedEvent}' untuk batch ${detectedType}. Terdeteksi: '${dS1.event}'.`;
-    }
-  } else {
-    passSachet1 = Boolean(cleanS1 && cleanB1 && (cleanS1.includes(cleanB1.slice(-4)) || cleanB1.includes(cleanS1.slice(-4))));
-    sachet1Note = passSachet1 ? 'Kesesuaian dasar kode sachet 1 cocok dengan LHP 1' : 'Kode Sachet 1 tidak cocok dengan LHP 1';
-  }
-
+  // 2. Kriteria: Kesesuaian Kode Sachet Mesin 1 (Sachet 1 & 3) vs LHP 1 (Sachet 3 samakan dengan Sachet 1)
+  const sub4B1 = cleanB1.slice(-4);
+  const passSachet1 = Boolean(
+    cleanS1 && cleanB1 && (
+      cleanS1.includes(cleanB1) ||
+      cleanB1.includes(cleanS1) ||
+      cleanS1.includes(sub4B1) ||
+      cleanB1.includes(cleanS1.slice(-4))
+    )
+  );
+  const passSachet3 = Boolean(
+    (!cleanS3 || cleanS3 === cleanS1 || cleanS3.includes(cleanS1) || cleanS1.includes(cleanS3) || (cleanB1 && cleanS3.includes(sub4B1)))
+  );
+  const combinedSachet1 = passSachet1 && passSachet3;
   criteria.push({
     id: 'crit-sachet1',
-    name: '2. Kesesuaian Kode Sachet Mesin 1 vs LHP 1',
-    passed: passSachet1,
-    expected: isTwoMachines ? 'CKR G[Thn][Bln][Tgl]AA / CKR X...' : 'CKR N[Thn][Bln][Tgl]AA / CKR X...',
-    detected: cleanS1 || '(Belum dipindai)',
-    note: sachet1Note,
+    name: '2. Kesesuaian Kode Sachet Mesin 1 (Sachet 1 & 3) vs LHP 1',
+    passed: combinedSachet1,
+    expected: `Sesuai dengan LHP 1 & Sachet 1 (${cleanB1 || 'Batch 1'})`,
+    detected: `S1: ${cleanS1 || '-'} | S3: ${cleanS3 || '-'}`,
+    note: combinedSachet1 ? 'Kode Sachet 1 dan Sachet 3 cocok dan sesuai.' : 'Ketidaksesuaian pada Sachet 1 atau Sachet 3.',
   });
 
-  // 3. Kriteria: Kesesuaian Kode Sachet Mesin 2 vs LHP 2 (Jika 2 Mesin)
+  // 3. Kriteria: Kesesuaian Kode Sachet Mesin 2 (Sachet 2 & 4) vs LHP 2 (Sachet 4 samakan dengan Sachet 2)
   if (isTwoMachines) {
-    let passSachet2 = false;
-    let sachet2Note = '';
-    if (dLhp2 && dS2) {
-      const yearMatch = !dLhp2.year || !dS2.year || dLhp2.year === dS2.year;
-      const monthMatch = !dLhp2.month || !dS2.month || dLhp2.month === dS2.month;
-      const dayMatch = !dLhp2.days[0] || !dS2.days[0] || dLhp2.days[0] === dS2.days[0];
-      const validEvent = dS2.event === 'G' || dS2.event === 'X' || dS2.event === 'L';
-      passSachet2 = yearMatch && monthMatch && dayMatch && validEvent;
-      sachet2Note = passSachet2
-        ? `Sesuai aturan Gabungan Mesin 2: Event Sachet 2 '${dS2.event}', Mesin '${dS2.machines}'`
-        : `Kode Sachet 2 tidak cocok dengan LHP 2. Terdeteksi: '${dS2.event}' / '${dS2.machines}'.`;
-    } else {
-      passSachet2 = Boolean(cleanS2 && cleanB2 && (cleanS2.includes(cleanB2.slice(-4)) || cleanB2.includes(cleanS2.slice(-4))));
-      sachet2Note = passSachet2 ? 'Kode Sachet Mesin 2 sesuai dengan LHP 2' : 'Kode Sachet Mesin 2 tidak cocok';
-    }
-
+    const sub4B2 = cleanB2 ? cleanB2.slice(-4) : '';
+    const passSachet2 = Boolean(
+      cleanS2 && (
+        cleanB2 ? (
+          cleanS2.includes(cleanB2) ||
+          cleanB2.includes(cleanS2) ||
+          cleanS2.includes(sub4B2)
+        ) : cleanS2.length >= 4
+      )
+    );
+    const passSachet4 = Boolean(
+      (!cleanS4 || cleanS4 === cleanS2 || cleanS4.includes(cleanS2) || cleanS2.includes(cleanS4) || (cleanB2 && cleanS4.includes(sub4B2)))
+    );
+    const combinedSachet2 = passSachet2 && passSachet4;
     criteria.push({
       id: 'crit-sachet2',
-      name: '3. Kesesuaian Kode Sachet Mesin 2 vs LHP 2',
-      passed: passSachet2,
-      expected: 'CKR G[Thn][Bln][Tgl]AB / CKR X...',
-      detected: cleanS2 || '(Belum dipindai)',
-      note: sachet2Note,
+      name: '3. Kesesuaian Kode Sachet Mesin 2 (Sachet 2 & 4) vs LHP 2',
+      passed: combinedSachet2,
+      expected: `Sesuai dengan LHP 2 & Sachet 2 (${cleanB2 || 'Batch 2'})`,
+      detected: `S2: ${cleanS2 || '-'} | S4: ${cleanS4 || '-'}`,
+      note: combinedSachet2 ? 'Kode Sachet 2 dan Sachet 4 cocok dan sesuai.' : 'Ketidaksesuaian pada Sachet 2 atau Sachet 4.',
     });
   }
 
   // 4. Kriteria: Format Kode Kemasan Box
-  let passBoxCode = false;
-  let boxCodeNote = '';
-  if (!isTwoMachines) {
-    // 1 Mesin: Kode Box harus sama persis dengan LHP 1 (misal FNMB11AA atau FXMB11AA)
-    passBoxCode = cleanBox === cleanB1 || cleanBox.endsWith(cleanB1) || cleanBox.includes(cleanB1);
-    boxCodeNote = passBoxCode
-      ? `Kode Box '${cleanBox}' cocok persis dengan LHP 1 '${cleanB1}'`
-      : `Kode Box harus sama persis dengan LHP 1 (${cleanB1}). Terbaca: '${cleanBox}'.`;
-  } else {
-    // 2 Mesin: Kode Box harus berawalan 'FG' (atau 'FL' jika ganti roll) dan berakhiran 'AAAB'
-    const startsWithFG = cleanBox.startsWith('FG') || cleanBox.startsWith('FL') || cleanBox.includes('FG');
-    const endsWithAAAB = cleanBox.endsWith('AAAB') || cleanBox.includes('AAAB');
-
-    // Jika beda tanggal, harus memuat kedua tanggal (misal 1112 atau 3001)
-    let datesIncluded = true;
-    if (dLhp1?.days[0] && dLhp2?.days[0] && dLhp1.days[0] !== dLhp2.days[0]) {
-      const combinedDays = `${dLhp1.days[0]}${dLhp2.days[0]}`;
-      datesIncluded = cleanBox.includes(combinedDays) || (cleanBox.includes(dLhp1.days[0]) && cleanBox.includes(dLhp2.days[0]));
-    }
-
-    passBoxCode = startsWithFG && endsWithAAAB && datesIncluded;
-    boxCodeNote = passBoxCode
-      ? `Sesuai SOP Gabungan 2 Mesin: Awalan FG/FL, Akhiran gabungan mesin 'AAAB'${datesIncluded ? ', Memuat kedua tanggal' : ''}`
-      : `Kode Box gabungan 2 mesin wajib diawali FG/FL dan diakhiri 'AAAB'. Terbaca: '${cleanBox}'.`;
-  }
-
+  const passBoxCode = Boolean(
+    cleanBox && (
+      cleanBox.includes(cleanB1) ||
+      cleanB1.includes(cleanBox) ||
+      (cleanB1 && cleanBox.includes(cleanB1.slice(-4))) ||
+      cleanBox.startsWith('FG') ||
+      cleanBox.startsWith('FL')
+    )
+  );
   criteria.push({
     id: 'crit-boxcode',
     name: '4. Kesesuaian Kode Kemasan Box',
     passed: passBoxCode,
-    expected: isTwoMachines ? 'FG[Thn][Bln][Tgl]AAAB (cth: FGMB11AAAB / FGMB1112AAAB)' : 'Sama dengan LHP 1 (cth: FNMB11AA)',
+    expected: isTwoMachines ? 'Awalan FG/FL dan memuat kode batch' : `Sama dengan LHP 1 (${cleanB1 || ''})`,
     detected: cleanBox || '(Belum dipindai)',
-    note: boxCodeNote,
+    note: passBoxCode ? 'Kode Kemasan Box sesuai dan valid.' : 'Kode Kemasan Box tidak sesuai dengan batch LHP.',
   });
 
   // 5. Kriteria: Kesesuaian Expired Date Box vs Sachet
-  let passExp = Boolean(cleanBoxExp && cleanBoxExp.length >= 6);
-  let expNote = '';
-  if (passExp) {
-    // Jika beda tanggal atau ganti roll: periksa apakah tanggal lebih awal digunakan
-    if (dLhp1?.days[0] && dLhp2?.days[0] && dLhp1.days[0] !== dLhp2.days[0]) {
-      const minDay = Math.min(Number(dLhp1.days[0]), Number(dLhp2.days[0])).toString().padStart(2, '0');
-      const boxDay = cleanBoxExp.slice(0, 2);
-      if (boxDay === minDay || cleanBoxExp.startsWith(minDay)) {
-        expNote = `Sesuai aturan SOP: Expired Box (${cleanBoxExp}) menggunakan tanggal LEBIH AWAL (${minDay}).`;
-      } else {
-        expNote = `Box wajib menggunakan tanggal lebih awal (${minDay}). Terdeteksi: ${cleanBoxExp}.`;
-      }
-    } else {
-      expNote = `Format Exp Date Box (${cleanBoxExp}) valid dan tercetak jelas.`;
-    }
-  } else {
-    expNote = 'Expired Date Box belum terdeteksi dari Foto 5 (Box dan Dus).';
-  }
-
+  const passExp = Boolean(cleanBoxExp && cleanBoxExp.length >= 4);
   criteria.push({
     id: 'crit-boxexp',
     name: '5. Tanggal Kadaluarsa (Expired Date) Box',
     passed: passExp,
-    expected: 'DD MM YY (Gunakan tanggal/bulan lebih awal jika beda)',
+    expected: 'DD MM YY (Tercetak jelas)',
     detected: cleanBoxExp || '(Kosong)',
-    note: expNote,
+    note: passExp ? 'Expired Date Box terbaca valid.' : 'Expired Date Box belum terdeteksi.',
   });
 
   // Overall Evaluation
@@ -685,3 +614,24 @@ export const performOcrOnPhotos = async (
 ) => {
   return scanTextFrom7Photos(p1, p2, p3, '', '', '', '', mtolList, onProgress);
 };
+
+export function resolveFullWoFromMtol(scannedWo: string, mtolRecords: MtolRecord[]): { fullWo: string; match?: MtolRecord } {
+  if (!scannedWo || !mtolRecords || mtolRecords.length === 0) return { fullWo: scannedWo };
+  const clean = scannedWo.trim().toUpperCase();
+
+  let match = mtolRecords.find((r) => r.wo.toUpperCase() === clean);
+  if (match) return { fullWo: match.wo, match };
+
+  const digitMatch = clean.match(/\d{4}/);
+  const target4 = digitMatch ? digitMatch[0] : clean.slice(-4);
+
+  if (target4.length >= 4) {
+    match = mtolRecords.find((r) => {
+      const rWo = r.wo.toUpperCase();
+      return rWo.includes(target4) || rWo.endsWith(target4);
+    });
+    if (match) return { fullWo: match.wo, match };
+  }
+
+  return { fullWo: scannedWo };
+}

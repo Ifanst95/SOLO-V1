@@ -141,7 +141,7 @@ export const PACKING_FILLING_PAIRS: Record<string, PackingFillingPair> = {
   'Hopak 6': { filling1: '6 Line 11', filling2: '6 Line 12' },
   'Hopak 7': { filling1: '6 Line 13', filling2: '6 Line 14' },
   'Hopak 8': { filling1: '6 Line 15', filling2: '6 Line 16' },
-  'Hopak 9': { filling1: '6 Line 1', filling2: '6 Line 2', filling3: '6 Line 3', filling4: '6 Line 4' },
+  'Hopak 9': { filling1: '6 Line 18', filling2: '6 Line 19' },
   'Packing Omag': { filling1: 'Filling Omag', filling2: '6 Line 1' },
   'Packing Tablet': { filling1: 'Filling Tablet', filling2: '6 Line 1' },
   'V2.1': { filling1: '10 Line 1', filling2: '10 Line 2' },

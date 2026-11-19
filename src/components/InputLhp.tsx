@@ -93,11 +93,20 @@ export const InputLhp: React.FC<InputLhpProps> = ({
     const cleanN1 = n1.trim().toUpperCase();
 
     if (cleanB1 || cleanW1) {
-      const match1 = mtolData.find(
-        (x) =>
-          (!cleanB1 || getLots(x).some((l) => l.includes(cleanB1) || cleanB1.includes(l))) &&
-          (!cleanW1 || x.wo.toUpperCase() === cleanW1)
+      let match1 = mtolData.find(
+        (x) => cleanW1 && (x.wo.toUpperCase() === cleanW1 || x.wo.toUpperCase().endsWith(cleanW1.slice(-4)) || x.wo.toUpperCase().includes(cleanW1))
       );
+      if (!match1 && cleanB1) {
+        match1 = mtolData.find((x) => getLots(x).some((l) => l.includes(cleanB1) || cleanB1.includes(l)));
+      }
+      if (!match1) {
+        match1 = mtolData.find(
+          (x) =>
+            (cleanW1 && (x.wo.toUpperCase() === cleanW1 || x.wo.toUpperCase().endsWith(cleanW1.slice(-4)))) ||
+            (cleanB1 && getLots(x).some((l) => l.includes(cleanB1) || cleanB1.includes(l)))
+        );
+      }
+
       if (!match1) {
         messages.lhp1 = {
           status: 'error',
@@ -120,11 +129,20 @@ export const InputLhp: React.FC<InputLhpProps> = ({
     const cleanN2 = n2.trim().toUpperCase();
 
     if (cleanB2 || cleanW2) {
-      const match2 = mtolData.find(
-        (x) =>
-          (!cleanB2 || getLots(x).some((l) => l.includes(cleanB2) || cleanB2.includes(l))) &&
-          (!cleanW2 || x.wo.toUpperCase() === cleanW2)
+      let match2 = mtolData.find(
+        (x) => cleanW2 && (x.wo.toUpperCase() === cleanW2 || x.wo.toUpperCase().endsWith(cleanW2.slice(-4)) || x.wo.toUpperCase().includes(cleanW2))
       );
+      if (!match2 && cleanB2) {
+        match2 = mtolData.find((x) => getLots(x).some((l) => l.includes(cleanB2) || cleanB2.includes(l)));
+      }
+      if (!match2) {
+        match2 = mtolData.find(
+          (x) =>
+            (cleanW2 && (x.wo.toUpperCase() === cleanW2 || x.wo.toUpperCase().endsWith(cleanW2.slice(-4)))) ||
+            (cleanB2 && getLots(x).some((l) => l.includes(cleanB2) || cleanB2.includes(l)))
+        );
+      }
+
       if (!match2) {
         messages.lhp2 = {
           status: 'error',
@@ -167,35 +185,78 @@ export const InputLhp: React.FC<InputLhpProps> = ({
     }
   };
 
+  const resolveFullWoFromMtol = (scannedWo: string, mtolRecords: MtolRecord[]): { fullWo: string; match?: MtolRecord } => {
+    if (!scannedWo || !mtolRecords || mtolRecords.length === 0) return { fullWo: scannedWo };
+    const clean = scannedWo.trim().toUpperCase();
+
+    // 1. Exact match on full WO
+    let match = mtolRecords.find((r) => r.wo.toUpperCase() === clean);
+    if (match) return { fullWo: match.wo, match };
+
+    // 2. Match by 4 digits (extract 4 digits from clean, or take last 4 characters/digits)
+    const digitMatch = clean.match(/\d{4}/);
+    const target4 = digitMatch ? digitMatch[0] : clean.slice(-4);
+
+    if (target4.length >= 4) {
+      match = mtolRecords.find((r) => {
+        const rWo = r.wo.toUpperCase();
+        return rWo.includes(target4) || rWo.endsWith(target4);
+      });
+      if (match) return { fullWo: match.wo, match };
+    }
+
+    return { fullWo: scannedWo };
+  };
+
   const handleWo1Change = (val: string) => {
-    setW1(val);
-    const clean = val.trim().toUpperCase();
-    if (clean.length >= 4 && mtolData.length > 0) {
-      const match = mtolData.find(
-        (r) => r.wo.toUpperCase() === clean || r.wo.endsWith(clean.slice(-4))
-      );
-      if (match) {
-        setN1(match.item);
-        if (!b1 && !scannedBatch1) {
-          const lots = getLots(match);
-          setB1((lots[0] || match.lot).replace(/\s+/g, '').toUpperCase());
+    const { fullWo, match } = resolveFullWoFromMtol(val, mtolData);
+    setW1(fullWo);
+    if (match) {
+      setN1(match.item);
+      if (!b1 && !scannedBatch1) {
+        const lots = getLots(match);
+        setB1((lots[0] || match.lot).replace(/\s+/g, '').toUpperCase());
+      }
+    } else {
+      const clean = val.trim().toUpperCase();
+      if (clean.length >= 4 && mtolData.length > 0) {
+        const fallbackMatch = mtolData.find(
+          (r) => r.wo.toUpperCase() === clean || r.wo.endsWith(clean.slice(-4)) || r.wo.includes(clean.slice(-4))
+        );
+        if (fallbackMatch) {
+          setW1(fallbackMatch.wo);
+          setN1(fallbackMatch.item);
+          if (!b1 && !scannedBatch1) {
+            const lots = getLots(fallbackMatch);
+            setB1((lots[0] || fallbackMatch.lot).replace(/\s+/g, '').toUpperCase());
+          }
         }
       }
     }
   };
 
   const handleWo2Change = (val: string) => {
-    setW2(val);
-    const clean = val.trim().toUpperCase();
-    if (clean.length >= 4 && mtolData.length > 0) {
-      const match = mtolData.find(
-        (r) => r.wo.toUpperCase() === clean || r.wo.endsWith(clean.slice(-4))
-      );
-      if (match) {
-        setN2(match.item);
-        if (!b2 && !scannedBatch2) {
-          const lots = getLots(match);
-          setB2((lots[1] || lots[0] || match.lot).replace(/\s+/g, '').toUpperCase());
+    const { fullWo, match } = resolveFullWoFromMtol(val, mtolData);
+    setW2(fullWo);
+    if (match) {
+      setN2(match.item);
+      if (!b2 && !scannedBatch2) {
+        const lots = getLots(match);
+        setB2((lots[1] || lots[0] || match.lot).replace(/\s+/g, '').toUpperCase());
+      }
+    } else {
+      const clean = val.trim().toUpperCase();
+      if (clean.length >= 4 && mtolData.length > 0) {
+        const fallbackMatch = mtolData.find(
+          (r) => r.wo.toUpperCase() === clean || r.wo.endsWith(clean.slice(-4)) || r.wo.includes(clean.slice(-4))
+        );
+        if (fallbackMatch) {
+          setW2(fallbackMatch.wo);
+          setN2(fallbackMatch.item);
+          if (!b2 && !scannedBatch2) {
+            const lots = getLots(fallbackMatch);
+            setB2((lots[1] || lots[0] || fallbackMatch.lot).replace(/\s+/g, '').toUpperCase());
+          }
         }
       }
     }
@@ -243,8 +304,19 @@ export const InputLhp: React.FC<InputLhpProps> = ({
         setScannedBatch1(cleanB1);
       }
       if (result.optionsB1) setOptionsB1(result.optionsB1);
-      if (result.w1) setW1(result.w1);
-      if (result.n1) setN1(result.n1);
+      if (result.w1) {
+        const { fullWo, match } = resolveFullWoFromMtol(result.w1, mtolData);
+        setW1(fullWo);
+        if (match) {
+          setN1(match.item);
+          if (!b1 && !scannedBatch1) {
+            const lots = getLots(match);
+            setB1((lots[0] || match.lot).replace(/\s+/g, '').toUpperCase());
+          }
+        } else if (result.n1) {
+          setN1(result.n1);
+        }
+      }
 
       if (result.b2) {
         const cleanB2 = result.b2.replace(/\s+/g, '').toUpperCase();
@@ -252,8 +324,19 @@ export const InputLhp: React.FC<InputLhpProps> = ({
         setScannedBatch2(cleanB2);
       }
       if (result.optionsB2) setOptionsB2(result.optionsB2);
-      if (result.w2) setW2(result.w2);
-      if (result.n2) setN2(result.n2);
+      if (result.w2) {
+        const { fullWo, match } = resolveFullWoFromMtol(result.w2, mtolData);
+        setW2(fullWo);
+        if (match) {
+          setN2(match.item);
+          if (!b2 && !scannedBatch2) {
+            const lots = getLots(match);
+            setB2((lots[1] || lots[0] || match.lot).replace(/\s+/g, '').toUpperCase());
+          }
+        } else if (result.n2) {
+          setN2(result.n2);
+        }
+      }
 
       if (result.kb) setKb(result.kb.replace(/\s+/g, '').toUpperCase());
       if (result.ex) setEx(result.ex);

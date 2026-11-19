@@ -35,6 +35,7 @@ import {
   scanTextFrom7Photos,
   ScanExtractedData,
   evaluateVisualPrintCriteria,
+  resolveFullWoFromMtol,
 } from '../lib/ocr';
 import { playSound } from '../lib/sound';
 import { AdminSoundSettings } from './AdminSoundSettings';
@@ -162,6 +163,15 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
         (step) => setScanStepText(step)
       );
 
+      if (res.w1) {
+        const { fullWo } = resolveFullWoFromMtol(res.w1, mtolData);
+        res.w1 = fullWo;
+      }
+      if (res.w2) {
+        const { fullWo } = resolveFullWoFromMtol(res.w2, mtolData);
+        res.w2 = fullWo;
+      }
+
       setAutoScanResult(res);
       setScanEditB1(res.b1 || '');
       setScanEditB2(res.b2 || '');
@@ -197,6 +207,8 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
       b2: scanEditB2,
       sachetCode1: scanEditS1,
       sachetCode2: scanEditS2,
+      sachetCode3: scanEditS3,
+      sachetCode4: scanEditS4,
       boxCode: scanEditBox,
       boxExp: scanEditExp,
     });
@@ -207,6 +219,8 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
       b2: scanEditB2,
       sachetCode1: scanEditS1,
       sachetCode2: scanEditS2,
+      sachetCode3: scanEditS3,
+      sachetCode4: scanEditS4,
       kb: scanEditBox,
       ex: scanEditExp,
       batchType: reEval.detectedType,
@@ -623,7 +637,8 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
       </div>
 
       {/* AUTO-VALIDATION CONTROLLER BANNER */}
-      <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-indigo-950 rounded-2xl p-5 text-white shadow-lg border border-teal-500/30">
+      {!['Packing Omag', 'Packing Tablet'].includes(selectedSample?.pk || '') && !selectedSample?.pk?.startsWith('V2.') && (
+        <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-indigo-950 rounded-2xl p-5 text-white shadow-lg border border-teal-500/30">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-teal-400 text-slate-950 flex items-center justify-center font-black shadow-lg">
@@ -941,6 +956,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
           </div>
         )}
       </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT: 5 PHOTOS CANVAS & CONTROLS */}
