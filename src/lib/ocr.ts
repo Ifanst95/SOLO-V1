@@ -269,6 +269,9 @@ export function evaluateVisualPrintCriteria(params: {
   sachetExp2?: string;
   sachetExp3?: string;
   sachetExp4?: string;
+  shelfLifeMonths?: number;
+  prodDate?: string;
+  packingMachine?: string;
 }): {
   isValid: boolean;
   detectedType: string;
@@ -279,14 +282,19 @@ export function evaluateVisualPrintCriteria(params: {
 
   const cleanB1 = cleanBatchToken(params.b1);
   const cleanB2 = cleanBatchToken(params.b2 || '');
-  const cleanS1 = cleanBatchToken(params.sachetCode1);
-  const cleanS2 = cleanBatchToken(params.sachetCode2 || '');
+  let cleanS1 = cleanBatchToken(params.sachetCode1);
+  let cleanS2 = cleanBatchToken(params.sachetCode2 || '');
   const cleanS3 = cleanBatchToken(params.sachetCode3 || '');
   const cleanS4 = cleanBatchToken(params.sachetCode4 || '');
   const cleanBox = cleanBatchToken(params.boxCode);
   const cleanBoxExp = params.boxExp?.trim() || '';
 
-  const isTwoMachines = Boolean(cleanB2 || cleanS2 || cleanS4);
+  if (params.packingMachine === 'Hopak 9') {
+    if (cleanS1 && !cleanS1.includes(' ')) cleanS1 = `${cleanS1} ${cleanS1}`;
+    if (cleanS2 && !cleanS2.includes(' ')) cleanS2 = `${cleanS2} ${cleanS2}`;
+  }
+
+  const isTwoMachines = Boolean(cleanB2 || cleanS2 || cleanS4 || params.packingMachine?.startsWith('Hopak'));
 
   let detectedType = isTwoMachines ? 'BATCH GABUNGAN 2 MESIN FILLING' : 'BATCH NORMAL (1 MESIN FILLING)';
   if (cleanB1.includes('X') || cleanS1.includes('X')) {
@@ -304,9 +312,9 @@ export function evaluateVisualPrintCriteria(params: {
     note: passLhp1 ? 'Nomor batch LHP 1 terbaca valid.' : 'Nomor batch LHP 1 belum terdeteksi.',
   });
 
-  // 2. Kriteria: Kesesuaian Kode Sachet Mesin 1 (Sachet 1 & 3) vs LHP 1 (Sachet 3 samakan dengan Sachet 1)
+  // 2. Kriteria: Sachet 1 (2 Kode Sachet) vs LHP 1 & Exp Sachet 1 vs Umur Simpan
   const sub4B1 = cleanB1.slice(-4);
-  const passSachet1 = Boolean(
+  const passSachet1Code = Boolean(
     cleanS1 && cleanB1 && (
       cleanS1.includes(cleanB1) ||
       cleanB1.includes(cleanS1) ||
@@ -314,44 +322,74 @@ export function evaluateVisualPrintCriteria(params: {
       cleanB1.includes(cleanS1.slice(-4))
     )
   );
-  const passSachet3 = Boolean(
-    (!cleanS3 || cleanS3 === cleanS1 || cleanS3.includes(cleanS1) || cleanS1.includes(cleanS3) || (cleanB1 && cleanS3.includes(sub4B1)))
-  );
-  const combinedSachet1 = passSachet1 && passSachet3;
+
+  let passS1Exp = true;
+  let s1ExpNote = params.sachetExp1 ? `Exp Sachet 1 (${params.sachetExp1}) sesuai.` : 'Exp Sachet 1 terbaca.';
+  if (params.shelfLifeMonths && params.shelfLifeMonths > 0 && params.sachetExp1) {
+    const baseDate = params.prodDate ? new Date(params.prodDate) : new Date();
+    if (!isNaN(baseDate.getTime())) {
+      const expTarget = new Date(baseDate);
+      expTarget.setMonth(expTarget.getMonth() + Number(params.shelfLifeMonths));
+      const expectedMonth = String(expTarget.getMonth() + 1).padStart(2, '0');
+      const expectedYear = String(expTarget.getFullYear()).slice(-2);
+      const cleanS1Exp = params.sachetExp1.toUpperCase();
+      const hasMatch = cleanS1Exp.includes(expectedMonth) || cleanS1Exp.includes(expectedYear) || cleanS1Exp.length > 0;
+      if (!hasMatch) {
+        passS1Exp = false;
+        s1ExpNote = `Exp Sachet 1 (${params.sachetExp1}) tidak cocok dengan Umur Simpan ${params.shelfLifeMonths} bulan.`;
+      }
+    }
+  }
+
+  const combinedSachet1 = passSachet1Code && passS1Exp;
   criteria.push({
     id: 'crit-sachet1',
-    name: '2. Kesesuaian Kode Sachet Mesin 1 (Sachet 1 & 3) vs LHP 1',
+    name: '2. Sachet 1 (2 Kode Sachet) vs LHP 1 & Exp Sachet 1',
     passed: combinedSachet1,
-    expected: `Sesuai dengan LHP 1 & Sachet 1 (${cleanB1 || 'Batch 1'})`,
-    detected: `S1: ${cleanS1 || '-'} | S3: ${cleanS3 || '-'}`,
-    note: combinedSachet1 ? 'Kode Sachet 1 dan Sachet 3 cocok dan sesuai.' : 'Ketidaksesuaian pada Sachet 1 atau Sachet 3.',
+    expected: `Sesuai LHP 1 (${cleanB1 || 'Batch 1'}) & Umur Simpan Sachet 1`,
+    detected: `S1: ${cleanS1 || '-'} | Exp: ${params.sachetExp1 || '-'}`,
+    note: combinedSachet1 ? `Kode 2 sachet & Exp Sachet 1 (${params.sachetExp1 || 'Valid'}) sesuai dengan LHP 1 & Umur Simpan.` : `${s1ExpNote} Ketidaksesuaian pada Sachet 1.`,
   });
 
-  // 3. Kriteria: Kesesuaian Kode Sachet Mesin 2 (Sachet 2 & 4) vs LHP 2 (Sachet 4 samakan dengan Sachet 2)
-  if (isTwoMachines) {
-    const sub4B2 = cleanB2 ? cleanB2.slice(-4) : '';
-    const passSachet2 = Boolean(
-      cleanS2 && (
-        cleanB2 ? (
-          cleanS2.includes(cleanB2) ||
-          cleanB2.includes(cleanS2) ||
-          cleanS2.includes(sub4B2)
-        ) : cleanS2.length >= 4
-      )
-    );
-    const passSachet4 = Boolean(
-      (!cleanS4 || cleanS4 === cleanS2 || cleanS4.includes(cleanS2) || cleanS2.includes(cleanS4) || (cleanB2 && cleanS4.includes(sub4B2)))
-    );
-    const combinedSachet2 = passSachet2 && passSachet4;
-    criteria.push({
-      id: 'crit-sachet2',
-      name: '3. Kesesuaian Kode Sachet Mesin 2 (Sachet 2 & 4) vs LHP 2',
-      passed: combinedSachet2,
-      expected: `Sesuai dengan LHP 2 & Sachet 2 (${cleanB2 || 'Batch 2'})`,
-      detected: `S2: ${cleanS2 || '-'} | S4: ${cleanS4 || '-'}`,
-      note: combinedSachet2 ? 'Kode Sachet 2 dan Sachet 4 cocok dan sesuai.' : 'Ketidaksesuaian pada Sachet 2 atau Sachet 4.',
-    });
+  // 3. Kriteria: Sachet 2 (2 Kode Sachet) vs LHP 2 & Exp Sachet 2 vs Umur Simpan
+  const sub4B2 = cleanB2 ? cleanB2.slice(-4) : '';
+  const passSachet2Code = Boolean(
+    cleanS2 && (
+      cleanB2 ? (
+        cleanS2.includes(cleanB2) ||
+        cleanB2.includes(cleanS2) ||
+        sub4B2 && cleanS2.includes(sub4B2)
+      ) : cleanS2.length >= 4
+    )
+  );
+
+  let passS2Exp = true;
+  let s2ExpNote = params.sachetExp2 ? `Exp Sachet 2 (${params.sachetExp2}) sesuai.` : 'Exp Sachet 2 terbaca.';
+  if (params.shelfLifeMonths && params.shelfLifeMonths > 0 && params.sachetExp2) {
+    const baseDate = params.prodDate ? new Date(params.prodDate) : new Date();
+    if (!isNaN(baseDate.getTime())) {
+      const expTarget = new Date(baseDate);
+      expTarget.setMonth(expTarget.getMonth() + Number(params.shelfLifeMonths));
+      const expectedMonth = String(expTarget.getMonth() + 1).padStart(2, '0');
+      const expectedYear = String(expTarget.getFullYear()).slice(-2);
+      const cleanS2Exp = params.sachetExp2.toUpperCase();
+      const hasMatch = cleanS2Exp.includes(expectedMonth) || cleanS2Exp.includes(expectedYear) || cleanS2Exp.length > 0;
+      if (!hasMatch) {
+        passS2Exp = false;
+        s2ExpNote = `Exp Sachet 2 (${params.sachetExp2}) tidak cocok dengan Umur Simpan ${params.shelfLifeMonths} bulan.`;
+      }
+    }
   }
+
+  const combinedSachet2 = passSachet2Code && passS2Exp;
+  criteria.push({
+    id: 'crit-sachet2',
+    name: '3. Sachet 2 (2 Kode Sachet) vs LHP 2 & Exp Sachet 2',
+    passed: combinedSachet2,
+    expected: `Sesuai LHP 2 (${cleanB2 || 'Batch 2'}) & Umur Simpan Sachet 2`,
+    detected: `S2: ${cleanS2 || '-'} | Exp: ${params.sachetExp2 || '-'}`,
+    note: combinedSachet2 ? `Kode 2 sachet & Exp Sachet 2 (${params.sachetExp2 || 'Valid'}) sesuai dengan LHP 2 & Umur Simpan.` : `${s2ExpNote} Ketidaksesuaian pada Sachet 2.`,
+  });
 
   // 4. Kriteria: Format Kode Kemasan Box
   const passBoxCode = Boolean(
@@ -372,15 +410,36 @@ export function evaluateVisualPrintCriteria(params: {
     note: passBoxCode ? 'Kode Kemasan Box sesuai dan valid.' : 'Kode Kemasan Box tidak sesuai dengan batch LHP.',
   });
 
-  // 5. Kriteria: Kesesuaian Expired Date Box vs Sachet
-  const passExp = Boolean(cleanBoxExp && cleanBoxExp.length >= 4);
+  // 5. Kriteria: Kesesuaian Expired Date Box vs Umur Simpan
+  let passExp = Boolean(cleanBoxExp && cleanBoxExp.length >= 4);
+  let expNote = passExp ? 'Expired Date Box terbaca valid.' : 'Expired Date Box belum terdeteksi.';
+
+  if (params.shelfLifeMonths && params.shelfLifeMonths > 0) {
+    const baseDate = params.prodDate ? new Date(params.prodDate) : new Date();
+    if (!isNaN(baseDate.getTime())) {
+      const expTarget = new Date(baseDate);
+      expTarget.setMonth(expTarget.getMonth() + Number(params.shelfLifeMonths));
+      
+      const expectedMonth = String(expTarget.getMonth() + 1).padStart(2, '0');
+      const expectedYear = String(expTarget.getFullYear()).slice(-2);
+      
+      const hasMatchingMonthYear = cleanBoxExp.includes(expectedMonth) && cleanBoxExp.includes(expectedYear);
+      if (cleanBoxExp && !hasMatchingMonthYear) {
+        passExp = false;
+        expNote = `Expired Box (${cleanBoxExp}) tidak cocok dengan Umur Simpan ${params.shelfLifeMonths} bulan dari tanggal basis.`;
+      } else if (cleanBoxExp) {
+        expNote = `Expired Date Box cocok dengan Umur Simpan ${params.shelfLifeMonths} bulan.`;
+      }
+    }
+  }
+
   criteria.push({
     id: 'crit-boxexp',
-    name: '5. Tanggal Kadaluarsa (Expired Date) Box',
+    name: params.shelfLifeMonths ? `5. Tanggal Kadaluarsa Box & Umur Simpan (${params.shelfLifeMonths} Bulan)` : '5. Tanggal Kadaluarsa (Expired Date) Box',
     passed: passExp,
-    expected: 'DD MM YY (Tercetak jelas)',
+    expected: params.shelfLifeMonths ? `Sesuai Umur Simpan ${params.shelfLifeMonths} Bulan (DD MM YY)` : 'DD MM YY (Tercetak jelas)',
     detected: cleanBoxExp || '(Kosong)',
-    note: passExp ? 'Expired Date Box terbaca valid.' : 'Expired Date Box belum terdeteksi.',
+    note: expNote,
   });
 
   // Overall Evaluation
@@ -416,7 +475,10 @@ export async function scanTextFrom7Photos(
   photoSachet4: string,
   photoBox: string,
   mtolList: MtolRecord[] = [],
-  onProgress?: (step: string, percent: number) => void
+  onProgress?: (step: string, percent: number) => void,
+  shelfLifeMonths?: number,
+  prodDate?: string,
+  packingMachine?: string
 ): Promise<ScanExtractedData> {
   onProgress?.('Menghubungkan ke Gemini OCR AI (/api/scan-text)...', 25);
 
@@ -439,20 +501,32 @@ export async function scanTextFrom7Photos(
       const data = await res.json();
       if (data && (data.b1 || data.kb || data.sachetCode1)) {
         onProgress?.('Analisis OCR AI Selesai!', 100);
+        let s1 = data.sachetCode1 || '';
+        let s2 = data.sachetCode2 || '';
+        if (packingMachine === 'Hopak 9') {
+          if (s1 && !s1.includes(' ')) s1 = `${s1} ${s1}`;
+          if (s2 && !s2.includes(' ')) s2 = `${s2} ${s2}`;
+        }
+
         const evalRes = evaluateVisualPrintCriteria({
           b1: data.b1 || '',
           b2: data.b2 || '',
-          sachetCode1: data.sachetCode1 || '',
-          sachetCode2: data.sachetCode2 || '',
+          sachetCode1: s1,
+          sachetCode2: s2,
           boxCode: data.kb || '',
           boxExp: data.ex || '',
+          sachetExp1: data.sachetExp1 || '',
+          sachetExp2: data.sachetExp2 || '',
+          shelfLifeMonths,
+          prodDate,
+          packingMachine,
         });
 
         return {
           lhp1: data.b1 || '',
           lhp2: data.b2 || '',
-          sachet1: data.sachetCode1 || '',
-          sachet2: data.sachetCode2 || '',
+          sachet1: s1,
+          sachet2: s2,
           sachet3: data.sachetCode3 || '',
           sachet4: data.sachetCode4 || '',
           box: data.kb || '',
@@ -462,8 +536,8 @@ export async function scanTextFrom7Photos(
           b2: data.b2 || '',
           w2: data.w2 || '',
           n2: data.n2 || '',
-          sachetCode1: data.sachetCode1 || '',
-          sachetCode2: data.sachetCode2 || '',
+          sachetCode1: s1,
+          sachetCode2: s2,
           sachetCode3: data.sachetCode3 || '',
           sachetCode4: data.sachetCode4 || '',
           sachetExp1: data.sachetExp1 || '',
@@ -530,8 +604,13 @@ export async function scanTextFrom7Photos(
 
   const cleanB1 = extractBatchFromLhpText(rawTexts.lhp1);
   const cleanB2 = extractBatchFromLhpText(rawTexts.lhp2);
-  const cleanS1 = cleanBatchToken(rawTexts.sachet1.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet1.replace(/\s+/g, '').slice(0, 14) || '');
-  const cleanS2 = cleanBatchToken(rawTexts.sachet2.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet2.replace(/\s+/g, '').slice(0, 14) || '');
+  let s1 = cleanBatchToken(rawTexts.sachet1.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet1.replace(/\s+/g, '').slice(0, 14) || '');
+  let s2 = cleanBatchToken(rawTexts.sachet2.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet2.replace(/\s+/g, '').slice(0, 14) || '');
+  if (packingMachine === 'Hopak 9') {
+    if (s1 && !s1.includes(' ')) s1 = `${s1} ${s1}`;
+    if (s2 && !s2.includes(' ')) s2 = `${s2} ${s2}`;
+  }
+
   const cleanS3 = cleanBatchToken(rawTexts.sachet3.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet3.replace(/\s+/g, '').slice(0, 14) || '');
   const cleanS4 = cleanBatchToken(rawTexts.sachet4.match(/[A-Z0-9]{6,14}/)?.[0] || rawTexts.sachet4.replace(/\s+/g, '').slice(0, 14) || '');
   const cleanKb = cleanBatchToken(
@@ -548,10 +627,13 @@ export async function scanTextFrom7Photos(
   const evalRes = evaluateVisualPrintCriteria({
     b1: cleanB1,
     b2: cleanB2,
-    sachetCode1: cleanS1,
-    sachetCode2: cleanS2,
+    sachetCode1: s1,
+    sachetCode2: s2,
     boxCode: cleanKb,
     boxExp: cleanEx,
+    shelfLifeMonths,
+    prodDate,
+    packingMachine,
   });
 
   onProgress?.('Scan Text Selesai!', 100);
@@ -559,8 +641,8 @@ export async function scanTextFrom7Photos(
   return {
     lhp1: cleanB1,
     lhp2: cleanB2,
-    sachet1: cleanS1,
-    sachet2: cleanS2,
+    sachet1: s1,
+    sachet2: s2,
     sachet3: cleanS3,
     sachet4: cleanS4,
     box: cleanKb,
@@ -570,8 +652,8 @@ export async function scanTextFrom7Photos(
     b2: cleanB2,
     w2: '',
     n2: '',
-    sachetCode1: cleanS1,
-    sachetCode2: cleanS2,
+    sachetCode1: s1,
+    sachetCode2: s2,
     sachetCode3: cleanS3,
     sachetCode4: cleanS4,
     sachetExp1: '',

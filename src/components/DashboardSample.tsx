@@ -92,6 +92,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
   const [isAutoValidating, setIsAutoValidating] = useState(false);
   const [autoScanResult, setAutoScanResult] = useState<ScanExtractedData | null>(null);
   const [scanStepText, setScanStepText] = useState('');
+  const [shelfLifeMonths, setShelfLifeMonths] = useState<number | ''>(24);
   const [showSopModal, setShowSopModal] = useState(false);
   const [sopTab, setSopTab] = useState<'p1' | 'p2' | 'p3'>('p1');
 
@@ -160,7 +161,10 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
         p6,
         p7,
         mtolData,
-        (step) => setScanStepText(step)
+        (step) => setScanStepText(step),
+        Number(shelfLifeMonths) || undefined,
+        selectedSample.pd,
+        selectedSample.pk
       );
 
       if (res.w1) {
@@ -211,6 +215,9 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
       sachetCode4: scanEditS4,
       boxCode: scanEditBox,
       boxExp: scanEditExp,
+      shelfLifeMonths: Number(shelfLifeMonths) || undefined,
+      prodDate: selectedSample?.pd,
+      packingMachine: selectedSample?.pk,
     });
 
     setAutoScanResult({
@@ -637,7 +644,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
       </div>
 
       {/* AUTO-VALIDATION CONTROLLER BANNER */}
-      {!['Packing Omag', 'Packing Tablet'].includes(selectedSample?.pk || '') && !selectedSample?.pk?.startsWith('V2.') && (
+      {selectedSample?.pk && !['Packing Omag', 'Packing Tablet', 'V2.1', 'V2.3'].includes(selectedSample.pk) && (
         <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-indigo-950 rounded-2xl p-5 text-white shadow-lg border border-teal-500/30">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -660,7 +667,20 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-teal-500/30 flex items-center space-x-2">
+              <label className="text-[11px] font-bold text-teal-300 uppercase whitespace-nowrap">Umur Simpan (Bulan):</label>
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={shelfLifeMonths}
+                onChange={(e) => setShelfLifeMonths(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="24"
+                className="w-20 px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none"
+              />
+            </div>
+
             <button
               type="button"
               onClick={handleRunAutoValidation}
@@ -672,7 +692,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
               ) : (
                 <Sparkles className="w-4 h-4" />
               )}
-              <span>{isAutoValidating ? 'Sedang Memindai & Menguji...' : '⚡ Jalankan Validasi Otomatis (Scan Text 5 Foto)'}</span>
+              <span>{isAutoValidating ? 'Sedang Memindai & Menguji...' : '⚡ Jalankan Validasi Otomatis'}</span>
             </button>
           </div>
         </div>

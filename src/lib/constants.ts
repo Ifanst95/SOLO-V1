@@ -40,6 +40,9 @@ export const REJECTION_REASONS = [
 ];
 
 export const getBoxPhotoDesc = (packingMachine: string) => {
+  if (packingMachine === 'V2.1' || packingMachine === 'V2.3') {
+    return 'Foto Box';
+  }
   if (packingMachine.startsWith('Hopak')) {
     return 'Print Box Ns';
   }
