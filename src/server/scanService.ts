@@ -119,8 +119,8 @@ Tugas Anda: Membaca teks cetakan inkjet dot-matrix pada foto-foto kemasan secara
 ATURAN SUMBER DAN FORMAT EKSTRAKSI:
 1. No Batch LHP 1 (b1): Wajib dibaca dari FOTO 1 (LHP 1) yaitu batch mixing, contoh : FNQK11AA.
 2. No Batch LHP 2 (b2): Wajib dibaca dari FOTO 2 (LHP 2) yaitu batch mixing, contoh : FNQK11AB.
-3. Kode Batch Box (kb): Wajib dibaca dari FOTO BOX/DUS (Foto 7 / Foto 5), contoh : FGQK17AAAB.
-4. Exp Date Box (ex): Wajib dibaca dari FOTO BOX/DUS (Foto 7 / Foto 5) dalam format DD MM YY, contoh : 17 11 28.
+3. Kode Batch Box (kb): Wajib dibaca dari FOTO BOX/DUS (Foto terakhir / Foto Box), contoh : FGQK17AAAB atau FL...
+4. Exp Date Box (ex): Wajib dibaca dari FOTO BOX/DUS (Foto terakhir / Foto Box) dalam format DD MM YY (contoh: 17 11 28) atau format teks tanggal lengkap yang dikonversi ke DD MM YY.
 5. Sachet Codes (sachetCode1..4): Dibaca dari Foto 3, 4, 5, 6 (sachet filling 1 sampai 4).
 
 TUGAS EKSTRAKSI JSON:
@@ -130,20 +130,20 @@ TUGAS EKSTRAKSI JSON:
 - b2: No Batch LHP 2 murni dari Foto 2 (tanpa spasi, jika ada)
 - w2: WO Mixing LHP 2 jika ada
 - n2: Nama item LHP 2 jika ada
-- sachetCode1: Kode cetak pada Sachet Filling 1 (Foto 3)
-- sachetCode2: Kode cetak pada Sachet Filling 2 (Foto 4)
-- sachetCode3: Kode cetak pada Sachet Filling 3 (Foto 5)
-- sachetCode4: Kode cetak pada Sachet Filling 4 (Foto 6)
+- sachetCode1: Kode cetak pada Sachet Filling 1
+- sachetCode2: Kode cetak pada Sachet Filling 2
+- sachetCode3: Kode cetak pada Sachet Filling 3
+- sachetCode4: Kode cetak pada Sachet Filling 4
 - sachetExp1: Exp date sachet 1 jika ada
 - sachetExp2: Exp date sachet 2 jika ada
 - sachetExp3: Exp date sachet 3 jika ada
 - sachetExp4: Exp date sachet 4 jika ada
-- kb: Kode Batch Box murni dari Foto Box/Dus (tanpa spasi, contoh: FGQK17AAAB)
+- kb: Kode Batch Box / Dus murni dari Foto Box/Dus (tanpa spasi, contoh: FGQK17AAAB)
 - ex: Exp Date Box dari Foto Box/Dus (format DD MM YY, contoh: 17 11 28)
 - pr: Prod Date dari Foto Box/Dus jika ada
 - pbe: Kode PBE jika ada
 
-PENTING: Hanya baca dari gambar yang terlampir. Jika foto tidak ada atau tidak terbaca, kembalikan string kosong "" dan jangan mengarang nomor batch.`;
+PENTING: Hanya baca dari gambar yang terlampir. Pastikan 'kb' dan 'ex' dari Foto Box/Dus selalu dibaca dan diekstrak dengan akurat. Jika tidak terbaca, coba cari cetakan dot-matrix pada dus.`;
 
   parts.push({ text: promptText });
 
@@ -187,13 +187,6 @@ PENTING: Hanya baca dari gambar yang terlampir. Jika foto tidak ada atau tidak t
               ex: { type: Type.STRING },
               pr: { type: Type.STRING },
               pbe: { type: Type.STRING },
-              rawTextLhp1: { type: Type.STRING },
-              rawTextLhp2: { type: Type.STRING },
-              rawTextSachet1: { type: Type.STRING },
-              rawTextSachet2: { type: Type.STRING },
-              rawTextSachet3: { type: Type.STRING },
-              rawTextSachet4: { type: Type.STRING },
-              rawTextBox: { type: Type.STRING },
             },
           },
         },
@@ -211,7 +204,19 @@ PENTING: Hanya baca dari gambar yang terlampir. Jika foto tidak ada atau tidak t
     throw lastError;
   }
 
-  const d = JSON.parse(responseText.trim() || '{}');
+  let d: any = {};
+  try {
+    d = JSON.parse(responseText.trim() || '{}');
+  } catch (parseErr) {
+    try {
+      const match = responseText.match(/\{[\s\S]*\}/);
+      if (match) {
+        d = JSON.parse(match[0]);
+      }
+    } catch (e) {
+      console.warn('Failed to parse Gemini OCR JSON response, returning empty:', responseText);
+    }
+  }
 
   const cleanVal = (val: any): string => {
     if (!val || typeof val !== 'string') return '';
@@ -240,13 +245,13 @@ PENTING: Hanya baca dari gambar yang terlampir. Jika foto tidak ada atau tidak t
     pr: cleanVal(d.pr),
     pbe: cleanVal(d.pbe),
     rawTexts: {
-      lhp1: cleanVal(d.rawTextLhp1),
-      lhp2: cleanVal(d.rawTextLhp2),
-      sachet1: cleanVal(d.rawTextSachet1),
-      sachet2: cleanVal(d.rawTextSachet2),
-      sachet3: cleanVal(d.rawTextSachet3),
-      sachet4: cleanVal(d.rawTextSachet4),
-      box: cleanVal(d.rawTextBox),
+      lhp1: '',
+      lhp2: '',
+      sachet1: '',
+      sachet2: '',
+      sachet3: '',
+      sachet4: '',
+      box: '',
     },
     engine: engineUsed,
   };

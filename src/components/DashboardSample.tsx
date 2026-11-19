@@ -122,6 +122,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
   const [scanEditS4, setScanEditS4] = useState('');
   const [scanEditBox, setScanEditBox] = useState('');
   const [scanEditExp, setScanEditExp] = useState('');
+  const [machineFilter, setMachineFilter] = useState<string>('all');
 
   const photoTitles = [
     'Foto 1: LHP 1',
@@ -144,6 +145,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
     setIsHighContrastMode(false);
     setAutoScanResult(null);
     setIsEditingScanValues(false);
+    setAutoPbe(sample.ocr?.pbe || '');
 
     const defaultParams = getInspectionParams(sample.pk);
     setParamValues(
@@ -390,8 +392,6 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
 
   // QUEUE VIEW
   if (!selectedSample) {
-    const [machineFilter, setMachineFilter] = useState<string>('all');
-
     const filteredSamplesForCounts = machineFilter === 'all' ? relevantSamples : relevantSamples.filter(s => s.pk === machineFilter);
 
     const filteredQueue = [...relevantSamples]
@@ -1059,9 +1059,11 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT: 5 PHOTOS CANVAS & CONTROLS */}
         <div className="lg:col-span-7 space-y-4">
-          {/* 7 Thumbnails */}
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-            {[0, 1, 2, 3, 4, 5, 6].map((idx) => {
+          {/* Active Thumbnails */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[0, 1, 2, 3, 4, 5, 6]
+              .filter((idx) => Boolean(selectedSample.img[idx]))
+              .map((idx) => {
               const isSelected = photoIndex === idx;
               return (
                 <button

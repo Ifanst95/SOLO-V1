@@ -90,52 +90,76 @@ export default function App() {
     let isMounted = true;
 
     try {
-      const unsubSamples = onSnapshot(collection(firestoreDb, 'samples'), (snapshot) => {
-        if (!isMounted) return;
-        const remoteSamples: SampleRecord[] = [];
-        snapshot.forEach((d) => remoteSamples.push(d.data() as SampleRecord));
-        if (remoteSamples.length > 0) {
-          setDb((prev) => {
-            const prevMap = new Map(prevSamplesRef.current.map((s) => [s.id, s.status]));
-            for (const s of remoteSamples) {
-              const oldStatus = prevMap.get(s.id);
-              if (oldStatus === 'pending' && (s.status === 'ok' || s.status === 'nok')) {
-                playSound(prev.cfg.tone, prev.cfg.vol, prev.cfg.custom);
-                showToast(
-                  `Hasil Validasi Mesin ${s.pk}: ${s.status === 'ok' ? 'OKE' : 'TIDAK OKE'}`,
-                  s.status === 'ok' ? 'ok' : 'err'
-                );
+      const unsubSamples = onSnapshot(
+        collection(firestoreDb, 'samples'),
+        (snapshot) => {
+          if (!isMounted) return;
+          const remoteSamples: SampleRecord[] = [];
+          snapshot.forEach((d) => remoteSamples.push(d.data() as SampleRecord));
+          if (remoteSamples.length > 0) {
+            setDb((prev) => {
+              const prevMap = new Map(prevSamplesRef.current.map((s) => [s.id, s.status]));
+              for (const s of remoteSamples) {
+                const oldStatus = prevMap.get(s.id);
+                if (oldStatus === 'pending' && (s.status === 'ok' || s.status === 'nok')) {
+                  playSound(prev.cfg.tone, prev.cfg.vol, prev.cfg.custom);
+                  showToast(
+                    `Hasil Validasi Mesin ${s.pk}: ${s.status === 'ok' ? 'OKE' : 'TIDAK OKE'}`,
+                    s.status === 'ok' ? 'ok' : 'err'
+                  );
+                }
               }
-            }
-            return { ...prev, samples: remoteSamples };
-          });
+              return { ...prev, samples: remoteSamples };
+            });
+          }
+        },
+        (err) => {
+          console.warn('Samples real-time sync paused (quota/network):', err.message);
         }
-      });
+      );
 
-      const unsubLhps = onSnapshot(collection(firestoreDb, 'lhps'), (snapshot) => {
-        if (!isMounted) return;
-        const remoteLhps: LhpRecord[] = [];
-        snapshot.forEach((d) => remoteLhps.push(d.data() as LhpRecord));
-        if (remoteLhps.length > 0) {
-          setDb((prev) => ({ ...prev, lhps: remoteLhps }));
+      const unsubLhps = onSnapshot(
+        collection(firestoreDb, 'lhps'),
+        (snapshot) => {
+          if (!isMounted) return;
+          const remoteLhps: LhpRecord[] = [];
+          snapshot.forEach((d) => remoteLhps.push(d.data() as LhpRecord));
+          if (remoteLhps.length > 0) {
+            setDb((prev) => ({ ...prev, lhps: remoteLhps }));
+          }
+        },
+        (err) => {
+          console.warn('LHPs real-time sync paused (quota/network):', err.message);
         }
-      });
+      );
 
-      const unsubMtol = onSnapshot(doc(firestoreDb, 'master_data', 'mtol'), (docSnap) => {
-        if (!isMounted) return;
-        if (docSnap.exists() && docSnap.data().records) {
-          const records = docSnap.data().records as MtolRecord[];
-          setDb((prev) => ({ ...prev, mtol: records }));
+      const unsubMtol = onSnapshot(
+        doc(firestoreDb, 'master_data', 'mtol'),
+        (docSnap) => {
+          if (!isMounted) return;
+          if (docSnap.exists() && docSnap.data().records) {
+            const records = docSnap.data().records as MtolRecord[];
+            setDb((prev) => ({ ...prev, mtol: records }));
+          }
+        },
+        (err) => {
+          console.warn('MTOL real-time sync paused (quota/network):', err.message);
         }
-      });
+      );
 
-      const unsubCfg = onSnapshot(doc(firestoreDb, 'settings', 'config'), (docSnap) => {
-        if (!isMounted) return;
-        if (docSnap.exists()) {
-          const cfgData = docSnap.data() as AppConfig;
-          setDb((prev) => ({ ...prev, cfg: { ...prev.cfg, ...cfgData } }));
+      const unsubCfg = onSnapshot(
+        doc(firestoreDb, 'settings', 'config'),
+        (docSnap) => {
+          if (!isMounted) return;
+          if (docSnap.exists()) {
+            const cfgData = docSnap.data() as AppConfig;
+            setDb((prev) => ({ ...prev, cfg: { ...prev.cfg, ...cfgData } }));
+          }
+        },
+        (err) => {
+          console.warn('Config real-time sync paused (quota/network):', err.message);
         }
-      });
+      );
 
       return () => {
         isMounted = false;
@@ -247,47 +271,12 @@ export default function App() {
     saveConfigToCloud(cfg);
   };
 
-  if (!role) {
-    return (
-      <div className="min-h-screen bg-slate-950 font-sans flex flex-col">
-        {toast && (
-          <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom duration-300">
-            <div
-              className={`px-4 py-3 rounded-2xl shadow-2xl border flex items-center space-x-3 text-xs font-bold ${
-                toast.type === 'ok'
-                  ? 'bg-emerald-950 text-emerald-100 border-emerald-500/40'
-                  : toast.type === 'err'
-                  ? 'bg-rose-950 text-rose-100 border-rose-500/40'
-                  : 'bg-slate-900 text-slate-100 border-slate-700'
-              }`}
-            >
-              {toast.type === 'ok' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : toast.type === 'err' ? (
-                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
-              ) : (
-                <BellRing className="w-4 h-4 text-teal-400 shrink-0" />
-              )}
-              <span>{toast.message}</span>
-            </div>
-          </div>
-        )}
-        <LoginModal
-          onLogin={handleRoleChange}
-          onOpenThemeModal={() => setIsThemeModalOpen(true)}
-        />
-        <ThemeModal
-          isOpen={isThemeModalOpen}
-          onClose={() => setIsThemeModalOpen(false)}
-          currentTheme={theme}
-          onSaveTheme={handleSaveTheme}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div
+      className={`min-h-screen font-sans flex flex-col transition-colors duration-200 ${
+        !role ? 'bg-slate-950' : 'bg-slate-100'
+      }`}
+    >
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom duration-300">
           <div
@@ -311,87 +300,105 @@ export default function App() {
         </div>
       )}
 
-      <Navbar
-        role={role}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onSwitchRole={() => setRole(null)}
-        onLogout={() => setRole(null)}
-        onOpenThemeModal={() => setIsThemeModalOpen(true)}
-      />
+      {!role ? (
+        <>
+          <LoginModal
+            onLogin={handleRoleChange}
+            onOpenThemeModal={() => setIsThemeModalOpen(true)}
+          />
+          <ThemeModal
+            isOpen={isThemeModalOpen}
+            onClose={() => setIsThemeModalOpen(false)}
+            currentTheme={theme}
+            onSaveTheme={handleSaveTheme}
+          />
+        </>
+      ) : (
+        <>
+          <Navbar
+            role={role}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onSwitchRole={() => setRole(null)}
+            onLogout={() => setRole(null)}
+            onOpenThemeModal={() => setIsThemeModalOpen(true)}
+          />
 
-      <main className="flex-1 p-3 sm:p-6 lg:p-8">
-        <div className="animate-in fade-in duration-200">
-          {role === 'operator' && activeTab === 'isam' && (
-            <InputSample
-              defaultOperator={operatorName}
-              defaultMachine={operatorMachine}
-              role={role}
-              onSubmit={handleSubmitSample}
-            />
-          )}
-          {role === 'operator' && activeTab === 'ilhp' && (
-            <InputLhp
-              mtolData={db.mtol}
-              samples={db.samples}
-              defaultMachine={operatorMachine}
-              role={role}
-              onSubmit={handleSubmitLhp}
-            />
-          )}
-          {role === 'operator' && activeTab === 'stat' && (
-            <OperatorStatus
-              samples={db.samples}
-              operatorMachine={operatorMachine}
-              role={role}
-            />
-          )}
+          <main className="flex-1 p-3 sm:p-6 lg:p-8">
+            <div className="animate-in fade-in duration-200">
+              {role === 'operator' && activeTab === 'isam' && (
+                <InputSample
+                  defaultOperator={operatorName}
+                  defaultMachine={operatorMachine}
+                  role={role}
+                  onSubmit={handleSubmitSample}
+                />
+              )}
+              {role === 'operator' && activeTab === 'ilhp' && (
+                <InputLhp
+                  mtolData={db.mtol}
+                  samples={db.samples}
+                  defaultMachine={operatorMachine}
+                  role={role}
+                  onSubmit={handleSubmitLhp}
+                />
+              )}
+              {role === 'operator' && activeTab === 'stat' && (
+                <OperatorStatus
+                  samples={db.samples}
+                  operatorMachine={operatorMachine}
+                  role={role}
+                />
+              )}
 
-          {role === 'admin' && activeTab === 'dsam' && (
-            <DashboardSample
-              samples={db.samples}
-              onValidate={handleValidateSample}
-              config={db.cfg}
-              onSaveConfig={(newCfg) => {
-                handleUpdateConfig(newCfg);
-                showToast('Pengaturan suara berhasil disimpan!');
-              }}
-              mtolData={db.mtol}
-              onDeleteSample={handleDeleteSample}
-              operatorMachine={operatorMachine}
-              role={role}
-              onUpdateSampleOcr={(id, newOcr) => {
-                setDb((prev) => ({
-                  ...prev,
-                  samples: prev.samples.map((s) =>
-                    s.id === id ? { ...s, ocr: { ...s.ocr, ...newOcr } } : s
-                  ),
-                }));
-              }}
-            />
-          )}
-          {role === 'admin' && activeTab === 'dsbj' && (
-            <DashboardSbj
-              samples={db.samples}
-              lhps={db.lhps}
-              onDeleteSample={handleDeleteSample}
-              onDeleteLhp={handleDeleteLhp}
-              operatorMachine={operatorMachine}
-              role={role}
-            />
-          )}
-          {role === 'admin' && activeTab === 'mtol' && (
-            <DataMtol mtolData={db.mtol} onUpdateMtol={handleUpdateMtol} />
-          )}
-        </div>
-      </main>
+              {role === 'admin' && activeTab === 'dsam' && (
+                <DashboardSample
+                  samples={db.samples}
+                  onValidate={handleValidateSample}
+                  config={db.cfg}
+                  onSaveConfig={(newCfg) => {
+                    handleUpdateConfig(newCfg);
+                    showToast('Pengaturan suara berhasil disimpan!');
+                  }}
+                  mtolData={db.mtol}
+                  onDeleteSample={handleDeleteSample}
+                  operatorMachine={operatorMachine}
+                  role={role}
+                  onUpdateSampleOcr={(id, newOcr) => {
+                    setDb((prev) => ({
+                      ...prev,
+                      samples: prev.samples.map((s) =>
+                        s.id === id ? { ...s, ocr: { ...s.ocr, ...newOcr } } : s
+                      ),
+                    }));
+                  }}
+                />
+              )}
+              {role === 'admin' && activeTab === 'dsbj' && (
+                <DashboardSbj
+                  samples={db.samples}
+                  lhps={db.lhps}
+                  onDeleteSample={handleDeleteSample}
+                  onDeleteLhp={handleDeleteLhp}
+                  operatorMachine={operatorMachine}
+                  role={role}
+                />
+              )}
+              {role === 'admin' && activeTab === 'mtol' && (
+                <DataMtol mtolData={db.mtol} onUpdateMtol={handleUpdateMtol} />
+              )}
+            </div>
+          </main>
 
-      <ThemeModal
-        isOpen={isThemeModalOpen}
-        onClose={() => setIsThemeModalOpen(false)}
-        currentTheme={theme}
-        onSaveTheme={handleSaveTheme}
-      />
+          <ThemeModal
+            isOpen={isThemeModalOpen}
+            onClose={() => setIsThemeModalOpen(false)}
+            currentTheme={theme}
+            onSaveTheme={handleSaveTheme}
+          />
+        </>
+      )}
     </div>
   );
+
 }

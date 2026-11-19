@@ -97,7 +97,30 @@ export const loadDatabase = (): AppDatabase => {
 export const saveDatabase = (db: AppDatabase) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  } catch (err) {
-    console.error('Failed to save to localStorage:', err);
+  } catch (err: any) {
+    console.warn('Failed to save to localStorage (quota exceeded or storage error):', err);
+    if (err && (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014 || err.message?.includes('quota'))) {
+      try {
+        const trimmedSamples = db.samples.map((s, idx) => {
+          if (idx < db.samples.length - 15) {
+            return { ...s, img: [] };
+          }
+          return s;
+        });
+        const prunedDb = { ...db, samples: trimmedSamples };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(prunedDb));
+      } catch (retryErr) {
+        try {
+          const minimalDb = {
+            ...db,
+            samples: db.samples.slice(-10).map((s) => ({ ...s, img: [] })),
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(minimalDb));
+        } catch (finalErr) {
+          console.error('Critical localStorage save failure:', finalErr);
+        }
+      }
+    }
   }
 };
+
