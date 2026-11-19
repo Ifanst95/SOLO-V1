@@ -6,17 +6,27 @@ import {
   Search,
   Bell,
 } from 'lucide-react';
-import { SampleRecord } from '../types';
+import { SampleRecord, UserRole } from '../types';
 
 interface OperatorStatusProps {
   samples: SampleRecord[];
+  operatorMachine?: string;
+  role?: UserRole;
 }
 
-export const OperatorStatus: React.FC<OperatorStatusProps> = ({ samples }) => {
+export const OperatorStatus: React.FC<OperatorStatusProps> = ({
+  samples,
+  operatorMachine,
+  role = 'operator',
+}) => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'ok' | 'nok'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredSamples = [...samples]
+  const relevantSamples = role === 'operator' && operatorMachine
+    ? samples.filter((s) => s.pk === operatorMachine)
+    : samples;
+
+  const filteredSamples = [...relevantSamples]
     .reverse()
     .filter((s) => {
       if (filter !== 'all' && s.status !== filter) return false;
@@ -61,7 +71,7 @@ export const OperatorStatus: React.FC<OperatorStatusProps> = ({ samples }) => {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Semua ({samples.length})
+              Semua ({relevantSamples.length})
             </button>
             <button
               onClick={() => setFilter('pending')}
@@ -71,7 +81,7 @@ export const OperatorStatus: React.FC<OperatorStatusProps> = ({ samples }) => {
                   : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
               }`}
             >
-              Menunggu ({samples.filter((s) => s.status === 'pending').length})
+              Menunggu ({relevantSamples.filter((s) => s.status === 'pending').length})
             </button>
             <button
               onClick={() => setFilter('ok')}
@@ -81,7 +91,7 @@ export const OperatorStatus: React.FC<OperatorStatusProps> = ({ samples }) => {
                   : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
               }`}
             >
-              OKE ({samples.filter((s) => s.status === 'ok').length})
+              OKE ({relevantSamples.filter((s) => s.status === 'ok').length})
             </button>
             <button
               onClick={() => setFilter('nok')}
@@ -91,7 +101,7 @@ export const OperatorStatus: React.FC<OperatorStatusProps> = ({ samples }) => {
                   : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
               }`}
             >
-              Tidak Oke ({samples.filter((s) => s.status === 'nok').length})
+              Tidak Oke ({relevantSamples.filter((s) => s.status === 'nok').length})
             </button>
           </div>
 

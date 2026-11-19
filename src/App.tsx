@@ -40,6 +40,18 @@ export default function App() {
   const [role, setRole] = useState<UserRole>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('isam');
   const [operatorName, setOperatorName] = useState('Operator Shift 1');
+  const [operatorMachine, setOperatorMachine] = useState<string>('Hopak 1');
+
+  const handleRoleChange = (newRole: UserRole, customOpName?: string, customMachine?: string) => {
+    setRole(newRole);
+    if (customOpName) setOperatorName(customOpName);
+    if (customMachine) setOperatorMachine(customMachine);
+    if (newRole === 'operator') {
+      setActiveTab('isam');
+    } else if (newRole === 'admin') {
+      setActiveTab('dsam');
+    }
+  };
 
   const [theme, setTheme] = useState<ThemeConfig>(() => db.cfg.theme || loadTheme());
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
@@ -155,15 +167,7 @@ export default function App() {
     };
   }, []);
 
-  const handleRoleChange = (newRole: UserRole, customOpName?: string) => {
-    setRole(newRole);
-    if (customOpName) setOperatorName(customOpName);
-    if (newRole === 'operator') {
-      setActiveTab('isam');
-    } else if (newRole === 'admin') {
-      setActiveTab('dsam');
-    }
-  };
+
 
   const handleSubmitSample = async (sample: SampleRecord) => {
     const updatedSamples = [...db.samples, sample];
@@ -321,6 +325,8 @@ export default function App() {
           {role === 'operator' && activeTab === 'isam' && (
             <InputSample
               defaultOperator={operatorName}
+              defaultMachine={operatorMachine}
+              role={role}
               onSubmit={handleSubmitSample}
             />
           )}
@@ -328,11 +334,17 @@ export default function App() {
             <InputLhp
               mtolData={db.mtol}
               samples={db.samples}
+              defaultMachine={operatorMachine}
+              role={role}
               onSubmit={handleSubmitLhp}
             />
           )}
           {role === 'operator' && activeTab === 'stat' && (
-            <OperatorStatus samples={db.samples} />
+            <OperatorStatus
+              samples={db.samples}
+              operatorMachine={operatorMachine}
+              role={role}
+            />
           )}
 
           {role === 'admin' && activeTab === 'dsam' && (
@@ -346,6 +358,8 @@ export default function App() {
               }}
               mtolData={db.mtol}
               onDeleteSample={handleDeleteSample}
+              operatorMachine={operatorMachine}
+              role={role}
               onUpdateSampleOcr={(id, newOcr) => {
                 setDb((prev) => ({
                   ...prev,
@@ -362,6 +376,8 @@ export default function App() {
               lhps={db.lhps}
               onDeleteSample={handleDeleteSample}
               onDeleteLhp={handleDeleteLhp}
+              operatorMachine={operatorMachine}
+              role={role}
             />
           )}
           {role === 'admin' && activeTab === 'mtol' && (

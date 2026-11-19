@@ -15,21 +15,30 @@ import {
   isProdDateRequired,
   getFillingPairForPacking,
 } from '../lib/constants';
-import { SampleRecord } from '../types';
+import { UserRole, SampleRecord } from '../types';
 
 interface InputSampleProps {
   onSubmit: (sample: SampleRecord) => void;
   defaultOperator?: string;
+  defaultMachine?: string;
+  role?: UserRole;
 }
 
 export const InputSample: React.FC<InputSampleProps> = ({
   onSubmit,
   defaultOperator = '',
+  defaultMachine = PACKING_MACHINES[0],
+  role = 'operator',
 }) => {
   const [operator, setOperator] = useState(defaultOperator || 'Operator Packing');
-  const [packingMachine, setPackingMachine] = useState(PACKING_MACHINES[0]);
+  const [packingMachine, setPackingMachine] = useState(defaultMachine || PACKING_MACHINES[0]);
 
-  const initialPair = getFillingPairForPacking(PACKING_MACHINES[0]);
+  useEffect(() => {
+    if (defaultOperator) setOperator(defaultOperator);
+    if (defaultMachine) setPackingMachine(defaultMachine);
+  }, [defaultOperator, defaultMachine]);
+
+  const initialPair = getFillingPairForPacking(packingMachine);
   const [filling1, setFilling1] = useState(initialPair.filling1);
   const [filling2, setFilling2] = useState(initialPair.filling2);
 
@@ -215,28 +224,50 @@ export const InputSample: React.FC<InputSampleProps> = ({
             <input
               type="text"
               value={operator}
+              readOnly={role === 'operator'}
               onChange={(e) => setOperator(e.target.value)}
               placeholder="Contoh: Budi Santoso"
               required
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none font-bold text-slate-800"
+              className={`w-full px-3.5 py-2.5 text-sm border rounded-xl font-bold ${
+                role === 'operator' ? 'bg-slate-100 text-slate-700 cursor-not-allowed border-slate-200' : 'bg-slate-50 border-slate-300 focus:ring-2 focus:ring-teal-500'
+              }`}
             />
+            {role === 'operator' && (
+              <span className="text-[10px] text-teal-700 font-semibold mt-1 block">
+                Sesuai login awal operator
+              </span>
+            )}
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Mesin Packing (PK)
             </label>
-            <select
-              value={packingMachine}
-              onChange={(e) => setPackingMachine(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none font-bold text-slate-800"
-            >
-              {PACKING_MACHINES.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            {role === 'operator' ? (
+              <input
+                type="text"
+                readOnly
+                value={packingMachine}
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-100 border border-slate-200 rounded-xl font-bold text-teal-900 cursor-not-allowed"
+              />
+            ) : (
+              <select
+                value={packingMachine}
+                onChange={(e) => setPackingMachine(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none font-bold text-slate-800"
+              >
+                {PACKING_MACHINES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            )}
+            {role === 'operator' && (
+              <span className="text-[10px] text-teal-700 font-semibold mt-1 block">
+                Mesin aktif operator
+              </span>
+            )}
           </div>
 
           {isProdDateRequired(packingMachine) && (

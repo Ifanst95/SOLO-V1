@@ -272,6 +272,8 @@ export function evaluateVisualPrintCriteria(params: {
   shelfLifeMonths?: number;
   prodDate?: string;
   packingMachine?: string;
+  expectedPbe?: string;
+  detectedPbe?: string;
 }): {
   isValid: boolean;
   detectedType: string;
@@ -431,6 +433,21 @@ export function evaluateVisualPrintCriteria(params: {
     note: expNote,
   });
 
+  // 5. Kriteria: Pencocokan No PBE Box dan Dus (jika diisi)
+  if (params.expectedPbe) {
+    const cleanExpectedPbe = params.expectedPbe.trim().toUpperCase();
+    const cleanDetectedPbe = (params.detectedPbe || '').trim().toUpperCase();
+    const passPbe = Boolean(cleanExpectedPbe && cleanDetectedPbe && cleanDetectedPbe.includes(cleanExpectedPbe));
+    criteria.push({
+      id: 'crit-pbe',
+      name: '5. Pencocokan No PBE Box dan Dus',
+      passed: passPbe,
+      expected: cleanExpectedPbe,
+      detected: cleanDetectedPbe || '(Tidak terdeteksi dari foto)',
+      note: passPbe ? 'No PBE pada Box dan Dus sesuai dengan input.' : 'Ketidaksesuaian No PBE antara input dan hasil scan/foto box dan dus.',
+    });
+  }
+
   // Overall Evaluation
   const allPassed = criteria.every((c) => c.passed);
   const summary = allPassed
@@ -503,7 +520,8 @@ export async function scanTextFrom7Photos(
   onProgress?: (step: string, percent: number) => void,
   shelfLifeMonths?: number,
   prodDate?: string,
-  packingMachine?: string
+  packingMachine?: string,
+  expectedPbe?: string
 ): Promise<ScanExtractedData> {
   onProgress?.('Memproses pemotongan Foto LHP (Atas = LHP 1, Bawah = LHP 2)...', 15);
   const photoLhp1 = photoLhp2Legacy ? photoLhp : await cropImageHalf(photoLhp, 'top');
@@ -549,6 +567,8 @@ export async function scanTextFrom7Photos(
           shelfLifeMonths,
           prodDate,
           packingMachine,
+          expectedPbe,
+          detectedPbe: data.pbe || '',
         });
 
         return {

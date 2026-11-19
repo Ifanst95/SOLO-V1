@@ -14,9 +14,10 @@ import {
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { loginAdminOnServer } from '../lib/cloudApi';
+import { PACKING_MACHINES } from '../lib/constants';
 
 interface LoginModalProps {
-  onLogin: (role: UserRole, operatorName?: string) => void;
+  onLogin: (role: UserRole, operatorName?: string, machineName?: string) => void;
   onOpenThemeModal?: () => void;
 }
 
@@ -26,6 +27,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onOpenThemeModa
   const [adminPass, setAdminPass] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [opName, setOpName] = useState('');
+  const [opMachine, setOpMachine] = useState(PACKING_MACHINES[0]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,7 +60,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onOpenThemeModa
 
   const handleOperatorSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin('operator', opName.trim() || 'Operator Kemas');
+    if (!opName.trim()) {
+      setErrorMsg('Nama operator wajib diisi.');
+      return;
+    }
+    onLogin('operator', opName.trim(), opMachine);
   };
 
   return (
@@ -137,17 +143,35 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onOpenThemeModa
             <form onSubmit={handleOperatorSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Nama Operator (Opsional)
+                  Nama Operator
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Budi Santoso / Line 1"
+                  required
+                  placeholder="Contoh: Budi Santoso"
                   value={opName}
                   onChange={(e) => setOpName(e.target.value)}
-                  className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none transition-colors font-bold text-slate-800"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Pilih Mesin Packing (PK)
+                </label>
+                <select
+                  value={opMachine}
+                  onChange={(e) => setOpMachine(e.target.value)}
+                  className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none font-bold text-slate-800 cursor-pointer"
+                >
+                  {PACKING_MACHINES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
                 <span className="text-[11px] text-slate-400 mt-1 block">
-                  Akses langsung pengambilan foto sampel kemasan &amp; input LHP harian
+                  Data inspeksi dan LHP harian otomatis difilter sesuai mesin ini
                 </span>
               </div>
 

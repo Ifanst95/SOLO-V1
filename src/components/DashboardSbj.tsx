@@ -8,7 +8,7 @@ import {
   Table,
   Trash2,
 } from 'lucide-react';
-import { SampleRecord, LhpRecord } from '../types';
+import { SampleRecord, LhpRecord, UserRole } from '../types';
 import { PACKING_MACHINES } from '../lib/constants';
 import {
   exportFullSoloSpreadsheet,
@@ -21,6 +21,8 @@ interface DashboardSbjProps {
   lhps: LhpRecord[];
   onDeleteSample?: (sampleId: number) => void;
   onDeleteLhp?: (lhpId: number) => void;
+  operatorMachine?: string;
+  role?: UserRole;
 }
 
 export const DashboardSbj: React.FC<DashboardSbjProps> = ({
@@ -28,12 +30,22 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
   lhps,
   onDeleteSample,
   onDeleteLhp,
+  operatorMachine,
+  role = 'admin',
 }) => {
   const [activeTab, setActiveTab] = useState<'sbj' | 'lhp'>('sbj');
   const [search, setSearch] = useState('');
   const [machineFilter, setMachineFilter] = useState<string>('all');
 
-  const validatedSamples = samples.filter((s) => s.status !== 'pending');
+  const relevantSamples = role === 'operator' && operatorMachine
+    ? samples.filter((s) => s.pk === operatorMachine)
+    : samples;
+
+  const relevantLhps = role === 'operator' && operatorMachine
+    ? lhps.filter((l) => (l.packingMachine === operatorMachine || l.pk === operatorMachine))
+    : lhps;
+
+  const validatedSamples = relevantSamples.filter((s) => s.status !== 'pending');
   const [notification, setNotification] = useState<string | null>(null);
 
   const showTempNotif = (msg: string) => {
@@ -54,7 +66,7 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
     );
   });
 
-  const filteredLhps = lhps.filter((l) => {
+  const filteredLhps = relevantLhps.filter((l) => {
     if (machineFilter !== 'all' && l.packingMachine && l.packingMachine !== machineFilter) return false;
     if (!search) return true;
     const term = search.toLowerCase();

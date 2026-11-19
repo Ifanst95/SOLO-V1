@@ -53,7 +53,10 @@ export const getBoxPhotoDesc = (packingMachine: string) => {
 };
 
 export const isProdDateRequired = (packingMachine: string) => {
-  return !packingMachine.startsWith('Hopak');
+  if (['V2.1', 'V2.3', 'V2.4', 'Packing Omag', 'Packing Tablet'].includes(packingMachine) || packingMachine.startsWith('Hopak')) {
+    return false;
+  }
+  return true;
 };
 
 export const getInspectionParams = (packingMachine: string): string[] => {

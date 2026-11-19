@@ -13,7 +13,7 @@ import {
   Tag,
   Box,
 } from 'lucide-react';
-import { LhpRecord, MtolRecord, SampleRecord } from '../types';
+import { LhpRecord, MtolRecord, SampleRecord, UserRole } from '../types';
 import { scanTextFrom7Photos, ScanExtractedData } from '../lib/ocr';
 import { PACKING_MACHINES } from '../lib/constants';
 
@@ -21,12 +21,16 @@ interface InputLhpProps {
   mtolData: MtolRecord[];
   samples?: SampleRecord[];
   onSubmit: (lhp: LhpRecord) => void;
+  defaultMachine?: string;
+  role?: UserRole;
 }
 
 export const InputLhp: React.FC<InputLhpProps> = ({
   mtolData,
   samples = [],
   onSubmit,
+  defaultMachine = PACKING_MACHINES[0],
+  role = 'operator',
 }) => {
   const [b1, setB1] = useState('');
   const [b2, setB2] = useState('');
@@ -56,14 +60,16 @@ export const InputLhp: React.FC<InputLhpProps> = ({
   const [optionsKb, setOptionsKb] = useState<string[]>([]);
 
   const [filterMachine, setFilterMachine] = useState<string>(
-    samples.length > 0 ? samples[samples.length - 1].pk : PACKING_MACHINES[0]
+    role === 'operator' && defaultMachine ? defaultMachine : (samples.length > 0 ? samples[samples.length - 1].pk : PACKING_MACHINES[0])
   );
 
   useEffect(() => {
-    if (samples.length > 0 && !samples.some((s) => s.pk === filterMachine)) {
+    if (role === 'operator' && defaultMachine) {
+      setFilterMachine(defaultMachine);
+    } else if (samples.length > 0 && !samples.some((s) => s.pk === filterMachine)) {
       setFilterMachine(samples[samples.length - 1].pk);
     }
-  }, [samples]);
+  }, [samples, defaultMachine, role]);
 
   const filteredSamples = samples.filter((s) => s.pk === filterMachine);
   const latestSample = filteredSamples.length > 0 ? filteredSamples[filteredSamples.length - 1] : null;
@@ -520,17 +526,26 @@ export const InputLhp: React.FC<InputLhpProps> = ({
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5">
               <label className="text-xs font-bold text-slate-700">Mesin:</label>
-              <select
-                value={filterMachine}
-                onChange={(e) => setFilterMachine(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800"
-              >
-                {PACKING_MACHINES.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+              {role === 'operator' ? (
+                <input
+                  type="text"
+                  readOnly
+                  value={filterMachine}
+                  className="px-3 py-1.5 text-xs bg-slate-100 border border-slate-200 rounded-xl font-bold text-teal-900 cursor-not-allowed"
+                />
+              ) : (
+                <select
+                  value={filterMachine}
+                  onChange={(e) => setFilterMachine(e.target.value)}
+                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800"
+                >
+                  {PACKING_MACHINES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {activeSample && (

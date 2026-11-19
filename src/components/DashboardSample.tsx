@@ -31,7 +31,7 @@ import {
   getBoxPhotoDesc,
   PACKING_MACHINES,
 } from '../lib/constants';
-import { SampleRecord, AppConfig, MtolRecord } from '../types';
+import { SampleRecord, AppConfig, MtolRecord, UserRole } from '../types';
 import { exportSamplesSpreadsheetXlsx } from '../lib/excelSpreadsheet';
 import {
   scanTextFrom7Photos,
@@ -58,6 +58,8 @@ interface DashboardSampleProps {
   mtolData?: MtolRecord[];
   onDeleteSample?: (sampleId: number) => void;
   onUpdateSampleOcr?: (sampleId: number, ocrData: SampleRecord['ocr']) => void;
+  operatorMachine?: string;
+  role?: UserRole;
 }
 
 export const DashboardSample: React.FC<DashboardSampleProps> = ({
@@ -67,10 +69,19 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
   onSaveConfig,
   mtolData = [],
   onDeleteSample,
+  operatorMachine,
+  role = 'admin',
 }) => {
+  const relevantSamples = role === 'operator' && operatorMachine
+    ? samples.filter((s) => s.pk === operatorMachine)
+    : samples;
+
   const [selectedSampleId, setSelectedSampleId] = useState<number | null>(null);
   const [photoIndex, setPhotoIndex] = useState<0 | 1 | 2 | 3 | 4 | 5 | 6>(0);
   const [viewMode, setViewMode] = useState<'single' | 'grid'>('single');
+
+  // Automatic Sample Validation (Scan Text 7 Photos) & PBE
+  const [autoPbe, setAutoPbe] = useState('');
 
   // Zoom & Pan states
   const [zoom, setZoom] = useState(1);
@@ -183,7 +194,8 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
         (step) => setScanStepText(step),
         Number(shelfLifeMonths) || undefined,
         selectedSample.pd,
-        selectedSample.pk
+        selectedSample.pk,
+        autoPbe || undefined
       );
 
       if (res.w1) {
@@ -380,9 +392,9 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
   if (!selectedSample) {
     const [machineFilter, setMachineFilter] = useState<string>('all');
 
-    const filteredSamplesForCounts = machineFilter === 'all' ? samples : samples.filter(s => s.pk === machineFilter);
+    const filteredSamplesForCounts = machineFilter === 'all' ? relevantSamples : relevantSamples.filter(s => s.pk === machineFilter);
 
-    const filteredQueue = [...samples]
+    const filteredQueue = [...relevantSamples]
       .reverse()
       .filter((s) => {
         if (machineFilter !== 'all' && s.pk !== machineFilter) return false;
@@ -442,10 +454,10 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                   onChange={(e) => setMachineFilter(e.target.value)}
                   className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800"
                 >
-                  <option value="all">Semua Mesin ({samples.length})</option>
+                  <option value="all">Semua Mesin ({relevantSamples.length})</option>
                   {PACKING_MACHINES.map((m) => (
                     <option key={m} value={m}>
-                      {m} ({samples.filter((s) => s.pk === m).length})
+                      {m} ({relevantSamples.filter((s) => s.pk === m).length})
                     </option>
                   ))}
                 </select>
@@ -699,7 +711,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
       </div>
 
       {/* AUTO-VALIDATION CONTROLLER BANNER */}
-      {selectedSample?.pk && !['Packing Omag', 'Packing Tablet', 'V2.1', 'V2.3'].includes(selectedSample.pk) && (
+      {selectedSample?.pk && (
         <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-indigo-950 rounded-2xl p-5 text-white shadow-lg border border-teal-500/30">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -723,6 +735,17 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-teal-500/30 flex items-center space-x-2">
+              <label className="text-[11px] font-bold text-teal-300 uppercase whitespace-nowrap">No PBE:</label>
+              <input
+                type="text"
+                value={autoPbe}
+                onChange={(e) => setAutoPbe(e.target.value.toUpperCase())}
+                placeholder="No PBE Box"
+                className="w-28 px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none"
+              />
+            </div>
+
             <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-teal-500/30 flex items-center space-x-2">
               <label className="text-[11px] font-bold text-teal-300 uppercase whitespace-nowrap">Umur Simpan (Bulan):</label>
               <input
