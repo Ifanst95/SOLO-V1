@@ -16,6 +16,8 @@ import {
   saveLhpToCloud,
   saveMtolToCloud,
   saveConfigToCloud,
+  deleteSampleFromCloud,
+  deleteLhpFromCloud,
 } from './lib/cloudApi';
 import { initAuth, db as firestoreDb } from './lib/firebase';
 import { onSnapshot, collection, doc } from 'firebase/firestore';
@@ -214,6 +216,22 @@ export default function App() {
     validateSampleOnCloud(sampleId, status, params, reasons, other, ocrData);
   };
 
+  const handleDeleteSample = async (sampleId: number) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data sampel ini?')) return;
+    const updatedSamples = db.samples.filter((s) => s.id !== sampleId);
+    setDb((prev) => ({ ...prev, samples: updatedSamples }));
+    showToast('Data sampel berhasil dihapus.', 'info');
+    deleteSampleFromCloud(sampleId);
+  };
+
+  const handleDeleteLhp = async (lhpId: number) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data LHP ini?')) return;
+    const updatedLhps = db.lhps.filter((l) => (l.id || l.b1) !== lhpId);
+    setDb((prev) => ({ ...prev, lhps: updatedLhps }));
+    showToast('Data LHP berhasil dihapus.', 'info');
+    deleteLhpFromCloud(lhpId);
+  };
+
   const handleUpdateMtol = (data: MtolRecord[]) => {
     setDb((prev) => ({ ...prev, mtol: data }));
     saveMtolToCloud(data);
@@ -327,6 +345,7 @@ export default function App() {
                 showToast('Pengaturan suara berhasil disimpan!');
               }}
               mtolData={db.mtol}
+              onDeleteSample={handleDeleteSample}
               onUpdateSampleOcr={(id, newOcr) => {
                 setDb((prev) => ({
                   ...prev,
@@ -341,6 +360,8 @@ export default function App() {
             <DashboardSbj
               samples={db.samples}
               lhps={db.lhps}
+              onDeleteSample={handleDeleteSample}
+              onDeleteLhp={handleDeleteLhp}
             />
           )}
           {role === 'admin' && activeTab === 'mtol' && (

@@ -23,11 +23,13 @@ import {
   FileSpreadsheet,
   FileText,
   BookOpen,
+  Trash2,
 } from 'lucide-react';
 import {
   getInspectionParams,
   REJECTION_REASONS,
   getBoxPhotoDesc,
+  PACKING_MACHINES,
 } from '../lib/constants';
 import { SampleRecord, AppConfig, MtolRecord } from '../types';
 import { exportSamplesSpreadsheetXlsx } from '../lib/excelSpreadsheet';
@@ -54,6 +56,7 @@ interface DashboardSampleProps {
   config?: AppConfig;
   onSaveConfig?: (newConfig: AppConfig) => void;
   mtolData?: MtolRecord[];
+  onDeleteSample?: (sampleId: number) => void;
   onUpdateSampleOcr?: (sampleId: number, ocrData: SampleRecord['ocr']) => void;
 }
 
@@ -63,6 +66,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
   config,
   onSaveConfig,
   mtolData = [],
+  onDeleteSample,
 }) => {
   const [selectedSampleId, setSelectedSampleId] = useState<number | null>(null);
   const [photoIndex, setPhotoIndex] = useState<0 | 1 | 2 | 3 | 4 | 5 | 6>(0);
@@ -374,9 +378,14 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
 
   // QUEUE VIEW
   if (!selectedSample) {
+    const [machineFilter, setMachineFilter] = useState<string>('all');
+
+    const filteredSamplesForCounts = machineFilter === 'all' ? samples : samples.filter(s => s.pk === machineFilter);
+
     const filteredQueue = [...samples]
       .reverse()
       .filter((s) => {
+        if (machineFilter !== 'all' && s.pk !== machineFilter) return false;
         if (queueFilter !== 'all' && s.status !== queueFilter) return false;
         if (!queueSearch) return true;
         const term = queueSearch.toLowerCase();
@@ -407,14 +416,14 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
           <div className="flex items-center space-x-3 bg-slate-800/80 px-4 py-2.5 rounded-xl border border-slate-700">
             <div>
               <div className="text-2xl font-black text-amber-400 leading-tight">
-                {samples.filter((s) => s.status === 'pending').length}
+                {filteredSamplesForCounts.filter((s) => s.status === 'pending').length}
               </div>
               <div className="text-[11px] text-slate-400">Menunggu Produksi</div>
             </div>
             <div className="w-px h-8 bg-slate-700"></div>
             <div>
               <div className="text-2xl font-black text-emerald-400 leading-tight">
-                {samples.filter((s) => s.status === 'ok').length}
+                {filteredSamplesForCounts.filter((s) => s.status === 'ok').length}
               </div>
               <div className="text-[11px] text-slate-400">Disetujui OKE</div>
             </div>
@@ -422,10 +431,28 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center space-x-1.5 w-full sm:w-auto">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-1">
-                Filter:
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col lg:flex-row items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-1">
+                  Mesin:
+                </span>
+                <select
+                  value={machineFilter}
+                  onChange={(e) => setMachineFilter(e.target.value)}
+                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800"
+                >
+                  <option value="all">Semua Mesin ({samples.length})</option>
+                  {PACKING_MACHINES.map((m) => (
+                    <option key={m} value={m}>
+                      {m} ({samples.filter((s) => s.pk === m).length})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-2 mr-1">
+                Status:
               </span>
               <button
                 onClick={() => setQueueFilter('all')}
@@ -435,7 +462,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Semua ({samples.length})
+                Semua ({filteredSamplesForCounts.length})
               </button>
               <button
                 onClick={() => setQueueFilter('pending')}
@@ -445,7 +472,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                     : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
                 }`}
               >
-                Menunggu ({samples.filter((s) => s.status === 'pending').length})
+                Menunggu ({filteredSamplesForCounts.filter((s) => s.status === 'pending').length})
               </button>
               <button
                 onClick={() => setQueueFilter('ok')}
@@ -455,7 +482,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                     : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                 }`}
               >
-                OKE ({samples.filter((s) => s.status === 'ok').length})
+                OKE ({filteredSamplesForCounts.filter((s) => s.status === 'ok').length})
               </button>
               <button
                 onClick={() => setQueueFilter('nok')}
@@ -465,14 +492,14 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                     : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
                 }`}
               >
-                Tidak Oke ({samples.filter((s) => s.status === 'nok').length})
+                Tidak Oke ({filteredSamplesForCounts.filter((s) => s.status === 'nok').length})
               </button>
             </div>
             <div className="flex items-center space-x-2 w-full sm:w-auto">
               <div className="relative w-full sm:w-60">
                 <input
                   type="text"
-                  placeholder="Cari mesin / operator..."
+                  placeholder="Cari operator..."
                   value={queueSearch}
                   onChange={(e) => setQueueSearch(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none"
@@ -515,7 +542,7 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                 {filteredQueue.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400">
-                      Tidak ada sampel yang cocok.
+                      Tidak ada sampel yang cocok untuk mesin / status ini.
                     </td>
                   </tr>
                 ) : (
@@ -559,14 +586,27 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <td className="py-3 px-4 text-center whitespace-nowrap space-x-1.5">
                         <button
                           onClick={() => handleOpenDetail(s)}
-                          className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                          className="inline-flex items-center space-x-1 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span>Inspeksi 5 Foto</span>
+                          <span>Inspeksi</span>
                         </button>
+                        {onDeleteSample && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Yakin ingin menghapus data sampel ini?')) {
+                                onDeleteSample(s.id);
+                              }
+                            }}
+                            className="inline-flex items-center px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-colors cursor-pointer"
+                            title="Hapus Sampel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

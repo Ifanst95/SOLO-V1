@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { LhpRecord, MtolRecord, SampleRecord } from '../types';
 import { scanTextFrom7Photos, ScanExtractedData } from '../lib/ocr';
+import { PACKING_MACHINES } from '../lib/constants';
 
 interface InputLhpProps {
   mtolData: MtolRecord[];
@@ -54,11 +55,31 @@ export const InputLhp: React.FC<InputLhpProps> = ({
   const [optionsB2, setOptionsB2] = useState<string[]>([]);
   const [optionsKb, setOptionsKb] = useState<string[]>([]);
 
-  const latestSample = samples.length > 0 ? samples[samples.length - 1] : null;
-  const [selectedSampleId, setSelectedSampleId] = useState<number | null>(
-    latestSample ? latestSample.id : null
+  const [filterMachine, setFilterMachine] = useState<string>(
+    samples.length > 0 ? samples[samples.length - 1].pk : PACKING_MACHINES[0]
   );
-  const activeSample = samples.find((s) => s.id === selectedSampleId) || latestSample;
+
+  useEffect(() => {
+    if (samples.length > 0 && !samples.some((s) => s.pk === filterMachine)) {
+      setFilterMachine(samples[samples.length - 1].pk);
+    }
+  }, [samples]);
+
+  const filteredSamples = samples.filter((s) => s.pk === filterMachine);
+  const latestSample = filteredSamples.length > 0 ? filteredSamples[filteredSamples.length - 1] : null;
+  const [selectedSampleId, setSelectedSampleId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (filteredSamples.length > 0) {
+      if (!selectedSampleId || !filteredSamples.some((s) => s.id === selectedSampleId)) {
+        setSelectedSampleId(filteredSamples[filteredSamples.length - 1].id);
+      }
+    } else {
+      setSelectedSampleId(null);
+    }
+  }, [filterMachine, samples]);
+
+  const activeSample = filteredSamples.find((s) => s.id === selectedSampleId) || latestSample;
 
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatusText, setScanStatusText] = useState('');
@@ -399,6 +420,7 @@ export const InputLhp: React.FC<InputLhpProps> = ({
     const lhp: LhpRecord = {
       id: Date.now(),
       at: new Date().toLocaleString('id-ID'),
+      packingMachine: activeSample ? activeSample.pk : filterMachine,
       b1: b1.replace(/\s+/g, '').toUpperCase(),
       b2: b2.replace(/\s+/g, '').toUpperCase(),
       w1: w1.trim(),
@@ -421,6 +443,24 @@ export const InputLhp: React.FC<InputLhpProps> = ({
       syncedToSheets: false,
     };
     onSubmit(lhp);
+
+    setB1('');
+    setB2('');
+    setW1('');
+    setW2('');
+    setN1('');
+    setN2('');
+    setEx('');
+    setKb('');
+    setPr('');
+    setPbe('');
+    setPf('');
+    setPk('');
+    setKlNum(0);
+    setCt('');
+    setSpNum('');
+    setErrorMsg(null);
+    setScanFilledNotice(null);
   };
 
   return (
@@ -462,7 +502,7 @@ export const InputLhp: React.FC<InputLhpProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="font-bold text-slate-900 text-sm">
-                  Scan Text Otomatis dari 5 Foto Sampel
+                  Scan Text Otomatis dari 5 Foto Sampel Mesin yang Sama
                 </h3>
                 {engineUsed && (
                   <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center space-x-1">
@@ -472,22 +512,39 @@ export const InputLhp: React.FC<InputLhpProps> = ({
                 )}
               </div>
               <p className="text-xs text-slate-500">
-                Membaca teks cetak nomor batch, expired date, dan kode kemasan dari foto sampel yang diunggah
+                Hanya menampilkan data inputan dari mesin packing yang sama
               </p>
             </div>
           </div>
 
-          {activeSample && (
-            <button
-              type="button"
-              onClick={() => handleRunScanText(false)}
-              disabled={isScanning}
-              className="px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center space-x-2 self-start sm:self-auto cursor-pointer"
-            >
-              <RotateCcw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
-              <span>{isScanning ? 'Memindai Teks...' : 'Scan Text Ulang'}</span>
-            </button>
-          )}
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-1.5">
+              <label className="text-xs font-bold text-slate-700">Mesin:</label>
+              <select
+                value={filterMachine}
+                onChange={(e) => setFilterMachine(e.target.value)}
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800"
+              >
+                {PACKING_MACHINES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {activeSample && (
+              <button
+                type="button"
+                onClick={() => handleRunScanText(false)}
+                disabled={isScanning}
+                className="px-3.5 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
+                <span>{isScanning ? 'Memindai...' : 'Scan Ulang'}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {activeSample ? (
@@ -496,9 +553,9 @@ export const InputLhp: React.FC<InputLhpProps> = ({
               <span>
                 Sampel Terhubung: <b className="text-slate-800">{activeSample.pk}</b> ({activeSample.at})
               </span>
-              {samples.length > 1 && (
+              {filteredSamples.length > 1 && (
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-[11px] text-slate-400">Pilih Sampel:</span>
+                  <span className="text-[11px] text-slate-400">Pilih Sampel Mesin Ini:</span>
                   <select
                     value={selectedSampleId ?? ''}
                     onChange={(e) => {
@@ -508,7 +565,7 @@ export const InputLhp: React.FC<InputLhpProps> = ({
                     }}
                     className="px-2 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-700 font-semibold"
                   >
-                    {samples.map((s) => (
+                    {filteredSamples.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.pk} ({s.at})
                       </option>
@@ -518,32 +575,25 @@ export const InputLhp: React.FC<InputLhpProps> = ({
               )}
             </div>
 
-            {/* Thumbnail 7 Photos */}
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+            {/* Thumbnail Active Photos */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { title: '1. LHP 1', src: activeSample.img[0] },
-                { title: '2. LHP 2', src: activeSample.img[1] },
-                { title: '3. Sachet 1', src: activeSample.img[2] },
-                { title: '4. Sachet 2', src: activeSample.img[3] },
-                { title: '5. Sachet 3', src: activeSample.img[4] },
-                { title: '6. Sachet 4', src: activeSample.img[5] },
-                { title: '7. Box/Dus', src: activeSample.img[6] },
-              ].map((item, idx) => (
-                <div key={idx} className="bg-slate-50 p-1.5 rounded-xl border border-slate-200 text-center">
-                  <span className="text-[10px] font-bold text-slate-700 block truncate mb-1">
-                    {item.title}
-                  </span>
-                  <div className="h-16 bg-slate-900 rounded-lg overflow-hidden border border-slate-200">
-                    {item.src ? (
+                { title: '1. Foto LHP', src: activeSample.img[0] },
+                { title: '2. Sachet 1', src: activeSample.img[2] },
+                { title: '3. Sachet 2', src: activeSample.img[3] },
+                { title: '4. Foto Box', src: activeSample.img[6] },
+              ]
+                .filter((item) => Boolean(item.src))
+                .map((item, idx) => (
+                  <div key={idx} className="bg-slate-50 p-1.5 rounded-xl border border-slate-200 text-center">
+                    <span className="text-[10px] font-bold text-slate-700 block truncate mb-1">
+                      {item.title}
+                    </span>
+                    <div className="h-16 bg-slate-900 rounded-lg overflow-hidden border border-slate-200">
                       <img src={item.src} alt={item.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500">
-                        Kosong
-                      </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
 
             {isScanning && (

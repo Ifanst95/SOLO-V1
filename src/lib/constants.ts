@@ -40,11 +40,8 @@ export const REJECTION_REASONS = [
 ];
 
 export const getBoxPhotoDesc = (packingMachine: string) => {
-  if (packingMachine === 'V2.1' || packingMachine === 'V2.3') {
+  if (packingMachine === 'V2.1' || packingMachine === 'V2.3' || packingMachine.startsWith('Hopak')) {
     return 'Foto Box';
-  }
-  if (packingMachine.startsWith('Hopak')) {
-    return 'Print Box Ns';
   }
   if (packingMachine === 'Packing Tablet') {
     return 'Print Box Tablet';

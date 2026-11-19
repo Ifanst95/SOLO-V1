@@ -6,8 +6,10 @@ import {
   FileCheck,
   FileSpreadsheet,
   Table,
+  Trash2,
 } from 'lucide-react';
 import { SampleRecord, LhpRecord } from '../types';
+import { PACKING_MACHINES } from '../lib/constants';
 import {
   exportFullSoloSpreadsheet,
   exportLhpSpreadsheetXlsx,
@@ -17,14 +19,19 @@ import {
 interface DashboardSbjProps {
   samples: SampleRecord[];
   lhps: LhpRecord[];
+  onDeleteSample?: (sampleId: number) => void;
+  onDeleteLhp?: (lhpId: number) => void;
 }
 
 export const DashboardSbj: React.FC<DashboardSbjProps> = ({
   samples,
   lhps,
+  onDeleteSample,
+  onDeleteLhp,
 }) => {
   const [activeTab, setActiveTab] = useState<'sbj' | 'lhp'>('sbj');
   const [search, setSearch] = useState('');
+  const [machineFilter, setMachineFilter] = useState<string>('all');
 
   const validatedSamples = samples.filter((s) => s.status !== 'pending');
   const [notification, setNotification] = useState<string | null>(null);
@@ -33,6 +40,34 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
     setNotification(msg);
     setTimeout(() => setNotification(null), 3000);
   };
+
+  const filteredValidatedSamples = validatedSamples.filter((s) => {
+    if (machineFilter !== 'all' && s.pk !== machineFilter) return false;
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return (
+      s.pk.toLowerCase().includes(term) ||
+      s.op.toLowerCase().includes(term) ||
+      s.f1.toLowerCase().includes(term) ||
+      s.f2.toLowerCase().includes(term) ||
+      s.at.toLowerCase().includes(term)
+    );
+  });
+
+  const filteredLhps = lhps.filter((l) => {
+    if (machineFilter !== 'all' && l.packingMachine && l.packingMachine !== machineFilter) return false;
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return (
+      l.b1.toLowerCase().includes(term) ||
+      (l.b2 || '').toLowerCase().includes(term) ||
+      (l.kb || '').toLowerCase().includes(term) ||
+      (l.w1 || '').toLowerCase().includes(term) ||
+      (l.n1 || '').toLowerCase().includes(term) ||
+      (l.packingMachine || '').toLowerCase().includes(term) ||
+      String(l.pk || '').toLowerCase().includes(term)
+    );
+  });
 
   const handleExportFullExcel = () => {
     if (samples.length === 0 && lhps.length === 0) {
@@ -49,29 +84,30 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
 
   const handleExportTabExcel = () => {
     if (activeTab === 'sbj') {
-      if (validatedSamples.length === 0) {
+      if (filteredValidatedSamples.length === 0) {
         showTempNotif('Belum ada data sampel tervalidasi untuk diekspor.');
         return;
       }
-      exportSamplesSpreadsheetXlsx(validatedSamples, `Rekap_Sampel_SBJ_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      exportSamplesSpreadsheetXlsx(filteredValidatedSamples, `Rekap_Sampel_SBJ_${new Date().toISOString().slice(0, 10)}.xlsx`);
       showTempNotif('Spreadsheet Sampel SBJ (.xlsx) berhasil diunduh.');
     } else {
-      if (lhps.length === 0) {
+      if (filteredLhps.length === 0) {
         showTempNotif('Belum ada data LHP untuk diekspor.');
         return;
       }
-      exportLhpSpreadsheetXlsx(lhps, `Data_LHP_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      exportLhpSpreadsheetXlsx(filteredLhps, `Data_LHP_${new Date().toISOString().slice(0, 10)}.xlsx`);
       showTempNotif('Spreadsheet LHP (.xlsx) berhasil diunduh.');
     }
   };
 
   const downloadLhpCsv = () => {
-    if (lhps.length === 0) {
+    if (filteredLhps.length === 0) {
       showTempNotif('Belum ada data LHP untuk diunduh.');
       return;
     }
     const headers = [
       'Waktu Input',
+      'Mesin',
       'Batch LHP 1',
       'Batch LHP 2',
       'WO Mixing 1',
@@ -92,8 +128,9 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
       'Sampel Port',
       'Status MTOL',
     ];
-    const rows = lhps.map((l) => [
+    const rows = filteredLhps.map((l) => [
       l.at,
+      l.packingMachine || '-',
       l.b1,
       l.b2 || '-',
       l.w1 || '-',
@@ -131,7 +168,7 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
   };
 
   const downloadSbjCsv = () => {
-    if (validatedSamples.length === 0) {
+    if (filteredValidatedSamples.length === 0) {
       showTempNotif('Belum ada data sampel tervalidasi untuk diunduh.');
       return;
     }
@@ -149,7 +186,7 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
       'Alasan Reject / Catatan',
       'Waktu Validasi',
     ];
-    const rows = validatedSamples.map((s) => [
+    const rows = filteredValidatedSamples.map((s) => [
       s.id,
       s.at,
       s.op,
@@ -234,39 +271,58 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
+        <div className="flex items-center space-x-2 w-full sm:w-auto overflow-x-auto">
           <button
             onClick={() => setActiveTab('sbj')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'sbj'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             <FileCheck className="w-4 h-4 text-teal-400" />
-            <span>1. Rekap Sampel Tervalidasi Produksi ({validatedSamples.length})</span>
+            <span>1. Rekap Sampel Tervalidasi ({filteredValidatedSamples.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('lhp')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'lhp'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             <Layers className="w-4 h-4 text-teal-400" />
-            <span>2. Data LHP Operator ({lhps.length})</span>
+            <span>2. Data LHP Operator ({filteredLhps.length})</span>
           </button>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Cari mesin, operator, batch..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none"
-          />
+
+        <div className="flex items-center space-x-3 w-full sm:w-auto">
+          <div className="flex items-center space-x-1.5">
+            <label className="text-xs font-bold text-slate-700">Mesin:</label>
+            <select
+              value={machineFilter}
+              onChange={(e) => setMachineFilter(e.target.value)}
+              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800"
+            >
+              <option value="all">Semua Mesin</option>
+              {PACKING_MACHINES.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="relative w-full sm:w-60">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Cari operator, batch..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -285,59 +341,63 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
                   <th className="py-3 px-3">Parameter Inspeksi</th>
                   <th className="py-3 px-3">Catatan / Alasan Reject</th>
                   <th className="py-3 px-3">Waktu Validasi</th>
+                  <th className="py-3 px-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {validatedSamples.length === 0 ? (
+                {filteredValidatedSamples.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
-                      Belum ada data sampel yang divalidasi oleh Admin.
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                      Belum ada data sampel tervalidasi untuk mesin ini.
                     </td>
                   </tr>
                 ) : (
-                  validatedSamples
-                    .filter((s) => {
-                      if (!search) return true;
-                      const term = search.toLowerCase();
-                      return (
-                        s.pk.toLowerCase().includes(term) ||
-                        s.op.toLowerCase().includes(term) ||
-                        s.f1.toLowerCase().includes(term) ||
-                        s.f2.toLowerCase().includes(term) ||
-                        s.at.toLowerCase().includes(term)
-                      );
-                    })
-                    .map((s, idx) => (
-                      <tr key={`${s.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-3 font-mono text-slate-500 whitespace-nowrap">{s.at}</td>
-                        <td className="py-3 px-3 font-bold text-slate-900 whitespace-nowrap">{s.pk}</td>
-                        <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
-                          {s.f1} / {s.f2}
-                        </td>
-                        <td className="py-3 px-3 font-semibold text-slate-800 whitespace-nowrap">{s.op}</td>
-                        <td className="py-3 px-3 font-mono whitespace-nowrap">{s.pd || '-'}</td>
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          {s.status === 'ok' ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              OKE
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
-                              REJECT
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-slate-700 max-w-xs whitespace-normal">
-                          {s.params?.join(' &bull; ') || '-'}
-                        </td>
-                        <td className="py-3 px-3 text-rose-700 font-semibold max-w-xs whitespace-normal">
-                          {[...(s.reasons || []), s.other].filter(Boolean).join(' | ') || '-'}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-500 whitespace-nowrap">
-                          {s.validatedAt || '-'}
-                        </td>
-                      </tr>
-                    ))
+                  filteredValidatedSamples.map((s, idx) => (
+                    <tr key={`${s.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-3 font-mono text-slate-500 whitespace-nowrap">{s.at}</td>
+                      <td className="py-3 px-3 font-bold text-slate-900 whitespace-nowrap">{s.pk}</td>
+                      <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
+                        {s.f1} / {s.f2}
+                      </td>
+                      <td className="py-3 px-3 font-semibold text-slate-800 whitespace-nowrap">{s.op}</td>
+                      <td className="py-3 px-3 font-mono whitespace-nowrap">{s.pd || '-'}</td>
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        {s.status === 'ok' ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            OKE
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
+                            REJECT
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-slate-700 max-w-xs whitespace-normal">
+                        {s.params?.join(' &bull; ') || '-'}
+                      </td>
+                      <td className="py-3 px-3 text-rose-700 font-semibold max-w-xs whitespace-normal">
+                        {[...(s.reasons || []), s.other].filter(Boolean).join(' | ') || '-'}
+                      </td>
+                      <td className="py-3 px-3 font-mono text-slate-500 whitespace-nowrap">
+                        {s.validatedAt || '-'}
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        {onDeleteSample && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Yakin ingin menghapus data sampel tervalidasi ini?')) {
+                                onDeleteSample(s.id);
+                              }
+                            }}
+                            className="inline-flex items-center px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors cursor-pointer"
+                            title="Hapus Data Sampel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -352,6 +412,7 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Waktu Input</th>
+                  <th className="py-3 px-4">Mesin</th>
                   <th className="py-3 px-4">Batch LHP 1</th>
                   <th className="py-3 px-4">Batch LHP 2</th>
                   <th className="py-3 px-4">WO Mixing</th>
@@ -362,55 +423,60 @@ export const DashboardSbj: React.FC<DashboardSbjProps> = ({
                   <th className="py-3 px-4">COUNTER</th>
                   <th className="py-3 px-4">SAMPEL PORT</th>
                   <th className="py-3 px-4 text-center">MTOL</th>
+                  <th className="py-3 px-4 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {lhps.length === 0 ? (
+                {filteredLhps.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-12 text-center text-slate-400">
-                      Belum ada data input LHP dari operator.
+                    <td colSpan={13} className="py-12 text-center text-slate-400">
+                      Belum ada data input LHP untuk mesin ini.
                     </td>
                   </tr>
                 ) : (
-                  lhps
-                    .filter((l) => {
-                      if (!search) return true;
-                      const term = search.toLowerCase();
-                      return (
-                        l.b1.toLowerCase().includes(term) ||
-                        (l.b2 || '').toLowerCase().includes(term) ||
-                        (l.kb || '').toLowerCase().includes(term) ||
-                        (l.w1 || '').toLowerCase().includes(term) ||
-                        (l.n1 || '').toLowerCase().includes(term)
-                      );
-                    })
-                    .map((l, idx) => (
-                      <tr key={`${l.id ?? l.b1}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">{l.at}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">{l.b1}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">{l.b2 || '-'}</td>
-                        <td className="py-3 px-4 font-mono text-slate-600 whitespace-nowrap">
-                          {l.w1}{l.w2 && l.w2 !== l.w1 ? ` / ${l.w2}` : ''}
-                        </td>
-                        <td className="py-3 px-4 font-medium text-slate-800 whitespace-nowrap">{l.n1 || '-'}</td>
-                        <td className="py-3 px-4 font-mono whitespace-nowrap">{l.ex}</td>
-                        <td className="py-3 px-4 font-mono uppercase whitespace-nowrap">{l.kb}</td>
-                        <td className="py-3 px-4 font-bold text-emerald-800 whitespace-nowrap bg-emerald-50/50">{l.tt}</td>
-                        <td className="py-3 px-4 font-mono whitespace-nowrap">{l.ct}</td>
-                        <td className="py-3 px-4 whitespace-nowrap">{l.sp || '-'}</td>
-                        <td className="py-3 px-4 text-center whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                              l.mtol === 'Sesuai'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
+                  filteredLhps.map((l, idx) => (
+                    <tr key={`${l.id ?? l.b1}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">{l.at}</td>
+                      <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">{l.packingMachine || '-'}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">{l.b1}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">{l.b2 || '-'}</td>
+                      <td className="py-3 px-4 font-mono text-slate-600 whitespace-nowrap">
+                        {l.w1}{l.w2 && l.w2 !== l.w1 ? ` / ${l.w2}` : ''}
+                      </td>
+                      <td className="py-3 px-4 font-medium text-slate-800 whitespace-nowrap">{l.n1 || '-'}</td>
+                      <td className="py-3 px-4 font-mono whitespace-nowrap">{l.ex}</td>
+                      <td className="py-3 px-4 font-mono uppercase whitespace-nowrap">{l.kb}</td>
+                      <td className="py-3 px-4 font-bold text-emerald-800 whitespace-nowrap bg-emerald-50/50">{l.tt}</td>
+                      <td className="py-3 px-4 font-mono whitespace-nowrap">{l.ct}</td>
+                      <td className="py-3 px-4 whitespace-nowrap">{l.sp || '-'}</td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                            l.mtol === 'Sesuai'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {l.mtol}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        {onDeleteLhp && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Yakin ingin menghapus data LHP ini?')) {
+                                onDeleteLhp(l.id || 0);
+                              }
+                            }}
+                            className="inline-flex items-center px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors cursor-pointer"
+                            title="Hapus Data LHP"
                           >
-                            {l.mtol}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

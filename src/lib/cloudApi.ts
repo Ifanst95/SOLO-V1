@@ -5,6 +5,7 @@ import {
   getDocs,
   getDoc,
   updateDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { AppDatabase, SampleRecord, LhpRecord, MtolRecord, AppConfig } from '../types';
@@ -181,3 +182,24 @@ export const changeAdminPasswordOnServer = async (
     return { success: false, error: err.message || 'Gagal mengubah password.' };
   }
 };
+
+export const deleteSampleFromCloud = async (sampleId: number): Promise<boolean> => {
+  try {
+    await deleteDoc(doc(db, 'samples', String(sampleId)));
+    return true;
+  } catch (err) {
+    console.warn('Delete sample from Firestore error:', err);
+    return false;
+  }
+};
+
+export const deleteLhpFromCloud = async (lhpId: number): Promise<boolean> => {
+  try {
+    await deleteDoc(doc(db, 'lhps', String(lhpId)));
+    return true;
+  } catch (err) {
+    console.warn('Delete LHP from Firestore error:', err);
+    return false;
+  }
+};
+

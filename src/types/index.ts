@@ -71,6 +71,7 @@ export interface SampleRecord {
 export interface LhpRecord {
   id?: number;
   at: string;
+  packingMachine?: string;
   b1: string;
   b2: string;
   w1: string;

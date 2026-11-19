@@ -152,6 +152,11 @@ export const InputSample: React.FC<InputSampleProps> = ({
       syncedToSheets: false,
     };
     onSubmit(newSample);
+
+    setPhotos(['', '', '', '']);
+    setProdDate('');
+    setNote(SAMPLE_NOTES[0]);
+    setErrorMsg(null);
   };
 
   const getSlot2Label = () => {
@@ -480,7 +485,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
             <div>
                <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-extrabold text-xs border border-amber-200">
-                  {isOmag || isTablet || isV2_1_3 ? 'Foto Box' : 'Foto Box dan Dus'}
+                  {isOmag || isTablet || isV2_1_3 || packingMachine.startsWith('Hopak') ? 'Foto Box' : 'Foto Box dan Dus'}
                 </span>
                 {photos[3] && (
                   <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
@@ -519,7 +524,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-teal-500 transition-colors bg-slate-50/50">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <Camera className="w-8 h-8 text-slate-400" />
-                    <span className="text-xs text-slate-500 font-medium">Ambil foto {isOmag || isTablet || isV2_1_3 ? 'box' : 'box dan dus'}</span>
+                    <span className="text-xs text-slate-500 font-medium">Ambil foto {isOmag || isTablet || isV2_1_3 || packingMachine.startsWith('Hopak') ? 'box' : 'box dan dus'}</span>
                     <div className="flex items-center space-x-2 w-full pt-1">
                       <label className="flex-1 cursor-pointer bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
                         <Camera className="w-3.5 h-3.5" />
