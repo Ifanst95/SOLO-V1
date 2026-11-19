@@ -36,6 +36,7 @@ import {
   ScanExtractedData,
   evaluateVisualPrintCriteria,
   resolveFullWoFromMtol,
+  cropImageHalf,
 } from '../lib/ocr';
 import { playSound } from '../lib/sound';
 import { AdminSoundSettings } from './AdminSoundSettings';
@@ -144,22 +145,36 @@ export const DashboardSample: React.FC<DashboardSampleProps> = ({
     setIsAutoValidating(true);
     setScanStepText('Memulai Scan Text pada 7 foto sampel...');
     try {
-      const p1 = selectedSample.img[0] || '';
-      const p2 = selectedSample.img[1] || '';
-      const p3 = selectedSample.img[2] || '';
-      const p4 = selectedSample.img[3] || '';
-      const p5 = selectedSample.img[4] || '';
-      const p6 = selectedSample.img[5] || '';
-      const p7 = selectedSample.img[6] || '';
+      const imgArr = selectedSample.img || [];
+      let pLhp1 = '';
+      let pLhp2 = '';
+      let pS1 = '';
+      let pS2 = '';
+      let pBox = '';
+
+      if (imgArr.length >= 7 && (imgArr[1] || (imgArr[0] && imgArr[1]))) {
+        pLhp1 = imgArr[0] || '';
+        pLhp2 = imgArr[1] || '';
+        pS1 = imgArr[2] || '';
+        pS2 = imgArr[3] || '';
+        pBox = imgArr[6] || imgArr[4] || '';
+      } else {
+        const pLhp = imgArr[0] || '';
+        pLhp1 = await cropImageHalf(pLhp, 'top');
+        pLhp2 = await cropImageHalf(pLhp, 'bottom');
+        pS1 = imgArr[2] || imgArr[1] || '';
+        pS2 = imgArr[3] || imgArr[2] || '';
+        pBox = imgArr[6] || imgArr[3] || imgArr[4] || '';
+      }
 
       const res = await scanTextFrom7Photos(
-        p1,
-        p2,
-        p3,
-        p4,
-        p5,
-        p6,
-        p7,
+        pLhp1,
+        pLhp2,
+        pS1,
+        pS2,
+        '',
+        '',
+        pBox,
         mtolData,
         (step) => setScanStepText(step),
         Number(shelfLifeMonths) || undefined,

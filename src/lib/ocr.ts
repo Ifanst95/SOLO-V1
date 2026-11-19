@@ -301,18 +301,7 @@ export function evaluateVisualPrintCriteria(params: {
     detectedType = 'BATCH PERBAIKAN';
   }
 
-  // 1. Kriteria: Validitas Kode LHP 1
-  const passLhp1 = Boolean(cleanB1 && cleanB1.length >= 4);
-  criteria.push({
-    id: 'crit-lhp1',
-    name: '1. Format Kode LHP 1',
-    passed: passLhp1,
-    expected: 'Nomor Batch LHP 1 valid (cth: FNQK11AA)',
-    detected: cleanB1 || '(Kosong)',
-    note: passLhp1 ? 'Nomor batch LHP 1 terbaca valid.' : 'Nomor batch LHP 1 belum terdeteksi.',
-  });
-
-  // 2. Kriteria: Sachet 1 (2 Kode Sachet) vs LHP 1 & Exp Sachet 1 vs Umur Simpan
+  // 1. Kriteria: Sachet 1 (2 Kode Sachet) vs LHP 1 & Exp Sachet 1 vs Umur Simpan
   const sub4B1 = cleanB1.slice(-4);
   const passSachet1Code = Boolean(
     cleanS1 && cleanB1 && (
@@ -344,14 +333,14 @@ export function evaluateVisualPrintCriteria(params: {
   const combinedSachet1 = passSachet1Code && passS1Exp;
   criteria.push({
     id: 'crit-sachet1',
-    name: '2. Sachet 1 (2 Kode Sachet) vs LHP 1 & Exp Sachet 1',
+    name: '1. Sachet 1 (2 Kode Sachet) vs LHP 1 & Exp Sachet 1',
     passed: combinedSachet1,
     expected: `Sesuai LHP 1 (${cleanB1 || 'Batch 1'}) & Umur Simpan Sachet 1`,
     detected: `S1: ${cleanS1 || '-'} | Exp: ${params.sachetExp1 || '-'}`,
     note: combinedSachet1 ? `Kode 2 sachet & Exp Sachet 1 (${params.sachetExp1 || 'Valid'}) sesuai dengan LHP 1 & Umur Simpan.` : `${s1ExpNote} Ketidaksesuaian pada Sachet 1.`,
   });
 
-  // 3. Kriteria: Sachet 2 (2 Kode Sachet) vs LHP 2 & Exp Sachet 2 vs Umur Simpan
+  // 2. Kriteria: Sachet 2 (2 Kode Sachet) vs LHP 2 & Exp Sachet 2 vs Umur Simpan
   const sub4B2 = cleanB2 ? cleanB2.slice(-4) : '';
   const passSachet2Code = Boolean(
     cleanS2 && (
@@ -384,14 +373,14 @@ export function evaluateVisualPrintCriteria(params: {
   const combinedSachet2 = passSachet2Code && passS2Exp;
   criteria.push({
     id: 'crit-sachet2',
-    name: '3. Sachet 2 (2 Kode Sachet) vs LHP 2 & Exp Sachet 2',
+    name: '2. Sachet 2 (2 Kode Sachet) vs LHP 2 & Exp Sachet 2',
     passed: combinedSachet2,
     expected: `Sesuai LHP 2 (${cleanB2 || 'Batch 2'}) & Umur Simpan Sachet 2`,
     detected: `S2: ${cleanS2 || '-'} | Exp: ${params.sachetExp2 || '-'}`,
     note: combinedSachet2 ? `Kode 2 sachet & Exp Sachet 2 (${params.sachetExp2 || 'Valid'}) sesuai dengan LHP 2 & Umur Simpan.` : `${s2ExpNote} Ketidaksesuaian pada Sachet 2.`,
   });
 
-  // 4. Kriteria: Format Kode Kemasan Box
+  // 3. Kriteria: Format Kode Kemasan Box
   const passBoxCode = Boolean(
     cleanBox && (
       cleanBox.includes(cleanB1) ||
@@ -403,14 +392,14 @@ export function evaluateVisualPrintCriteria(params: {
   );
   criteria.push({
     id: 'crit-boxcode',
-    name: '4. Kesesuaian Kode Kemasan Box',
+    name: '3. Kesesuaian Kode Kemasan Box',
     passed: passBoxCode,
     expected: isTwoMachines ? 'Awalan FG/FL dan memuat kode batch' : `Sama dengan LHP 1 (${cleanB1 || ''})`,
     detected: cleanBox || '(Belum dipindai)',
     note: passBoxCode ? 'Kode Kemasan Box sesuai dan valid.' : 'Kode Kemasan Box tidak sesuai dengan batch LHP.',
   });
 
-  // 5. Kriteria: Kesesuaian Expired Date Box vs Umur Simpan
+  // 4. Kriteria: Kesesuaian Expired Date Box vs Umur Simpan
   let passExp = Boolean(cleanBoxExp && cleanBoxExp.length >= 4);
   let expNote = passExp ? 'Expired Date Box terbaca valid.' : 'Expired Date Box belum terdeteksi.';
 
@@ -435,7 +424,7 @@ export function evaluateVisualPrintCriteria(params: {
 
   criteria.push({
     id: 'crit-boxexp',
-    name: params.shelfLifeMonths ? `5. Tanggal Kadaluarsa Box & Umur Simpan (${params.shelfLifeMonths} Bulan)` : '5. Tanggal Kadaluarsa (Expired Date) Box',
+    name: params.shelfLifeMonths ? `4. Tanggal Kadaluarsa Box & Umur Simpan (${params.shelfLifeMonths} Bulan)` : '4. Tanggal Kadaluarsa (Expired Date) Box',
     passed: passExp,
     expected: params.shelfLifeMonths ? `Sesuai Umur Simpan ${params.shelfLifeMonths} Bulan (DD MM YY)` : 'DD MM YY (Tercetak jelas)',
     detected: cleanBoxExp || '(Kosong)',
@@ -466,9 +455,45 @@ export function evaluateVisualPrintCriteria(params: {
  * Photo 6: Foto Sachet Filling 4
  * Photo 7: Foto Box dan Dus
  */
+export function cropImageHalf(imageSrc: string, half: 'top' | 'bottom'): Promise<string> {
+  return new Promise((resolve) => {
+    if (!imageSrc || !imageSrc.startsWith('data:image')) {
+      resolve(imageSrc);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(imageSrc);
+          return;
+        }
+        const width = img.width;
+        const halfHeight = Math.floor(img.height / 2);
+        canvas.width = width;
+        canvas.height = halfHeight;
+
+        const sy = half === 'top' ? 0 : halfHeight;
+        ctx.drawImage(img, 0, sy, width, halfHeight, 0, 0, width, halfHeight);
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      } catch (err) {
+        resolve(imageSrc);
+      }
+    };
+    img.onerror = () => resolve(imageSrc);
+    img.src = imageSrc;
+  });
+}
+
+/**
+ * Scan Text from 7 Photos (or 1 LHP photo split into top/bottom):
+ */
 export async function scanTextFrom7Photos(
-  photoLhp1: string,
-  photoLhp2: string,
+  photoLhp: string,
+  photoLhp2Legacy: string,
   photoSachet1: string,
   photoSachet2: string,
   photoSachet3: string,
@@ -480,7 +505,11 @@ export async function scanTextFrom7Photos(
   prodDate?: string,
   packingMachine?: string
 ): Promise<ScanExtractedData> {
-  onProgress?.('Menghubungkan ke Gemini OCR AI (/api/scan-text)...', 25);
+  onProgress?.('Memproses pemotongan Foto LHP (Atas = LHP 1, Bawah = LHP 2)...', 15);
+  const photoLhp1 = photoLhp2Legacy ? photoLhp : await cropImageHalf(photoLhp, 'top');
+  const photoLhp2 = photoLhp2Legacy || (await cropImageHalf(photoLhp, 'bottom'));
+
+  onProgress?.('Menghubungkan ke Gemini OCR AI (/api/scan-text)...', 35);
 
   try {
     const res = await fetch('/api/scan-text', {

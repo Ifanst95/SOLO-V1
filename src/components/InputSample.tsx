@@ -37,10 +37,10 @@ export const InputSample: React.FC<InputSampleProps> = ({
   const [note, setNote] = useState(SAMPLE_NOTES[0]);
   const [currentDateTime, setCurrentDateTime] = useState('');
 
-  // 5 Photos array: [Slot0, Slot1, Slot2, Slot3, Slot4]
+  // 4 Photos array: [LHP, Sachet 1, Sachet 2, Box]
   const [photos, setPhotos] = useState<
-    [string, string, string, string, string]
-  >(['', '', '', '', '']);
+    [string, string, string, string]
+  >(['', '', '', '']);
   const [, setLoadingCompress] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -87,7 +87,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
           setPhotos((prev) => {
-            const next = [...prev] as [string, string, string, string, string];
+            const next = [...prev] as [string, string, string, string];
             next[index] = compressedDataUrl;
             return next;
           });
@@ -105,7 +105,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
 
   const handleRemovePhoto = (index: number) => {
     setPhotos((prev) => {
-      const next = [...prev] as [string, string, string, string, string];
+      const next = [...prev] as [string, string, string, string];
       next[index] = '';
       return next;
     });
@@ -118,9 +118,9 @@ export const InputSample: React.FC<InputSampleProps> = ({
       return;
     }
 
-    if (!photos[0] || !photos[2] || !photos[4]) {
+    if (!photos[0] || !photos[1] || (!isSingleMachine && !photos[2]) || !photos[3]) {
       setErrorMsg(
-        'Harap lengkapi minimal Foto 1 (LHP 1), Foto 3, dan Foto 5 (Box dan Dus).'
+        'Harap lengkapi Foto LHP, Sachet Filling, dan Box.'
       );
       return;
     }
@@ -132,8 +132,8 @@ export const InputSample: React.FC<InputSampleProps> = ({
     }
 
     const finalPhotos: [string, string, string, string, string, string, string] = isSingleMachine
-      ? [photos[0], '', photos[2], photos[3], '', '', photos[4]]
-      : [photos[0], photos[1], photos[2], photos[3], '', '', photos[4]];
+      ? [photos[0], '', photos[1], '', '', '', photos[3]]
+      : [photos[0], '', photos[1], photos[2], '', '', photos[3]];
 
     const newSample: SampleRecord = {
       id: Date.now(),
@@ -254,12 +254,12 @@ export const InputSample: React.FC<InputSampleProps> = ({
 
         {/* PHOTO SLOTS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {/* Slot 0: Foto 1 - LHP 1 */}
+          {/* Slot 0: Foto LHP (Atas = LHP 1, Bawah = LHP 2) */}
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 font-extrabold text-xs border border-teal-200">
-                  Foto 1: LHP 1
+                  Foto 1: LHP (Atas & Bawah)
                 </span>
                 {photos[0] && (
                   <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
@@ -270,21 +270,24 @@ export const InputSample: React.FC<InputSampleProps> = ({
               </div>
               <div className="mt-3">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  MESIN FILLING 1
+                  MESIN FILLING 1 &amp; 2
                 </label>
                 <input
                   type="text"
                   readOnly
-                  value={filling1}
+                  value={`${filling1} / ${filling2}`}
                   className="w-full px-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-800"
                 />
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                Foto lembar LHP (Atas: LHP 1, Bawah: LHP 2)
               </div>
             </div>
 
             <div className="mt-4">
               {photos[0] ? (
                 <div className="relative group rounded-xl overflow-hidden border border-slate-300 bg-slate-900 aspect-4/3 flex items-center justify-center">
-                  <img src={photos[0]} alt="LHP 1" className="w-full h-full object-contain" />
+                  <img src={photos[0]} alt="LHP" className="w-full h-full object-contain" />
                   <button
                     type="button"
                     onClick={() => handleRemovePhoto(0)}
@@ -298,7 +301,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-teal-500 transition-colors bg-slate-50/50">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <Camera className="w-8 h-8 text-slate-400" />
-                    <span className="text-xs text-slate-500 font-medium">Ambil foto LHP 1</span>
+                    <span className="text-xs text-slate-500 font-medium">Ambil foto LHP</span>
                     <div className="flex items-center space-x-2 w-full pt-1">
                       <label className="flex-1 cursor-pointer bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
                         <Camera className="w-3.5 h-3.5" />
@@ -328,90 +331,14 @@ export const InputSample: React.FC<InputSampleProps> = ({
             </div>
           </div>
 
-          {/* Slot 1: Foto 2 - LHP 2 (Hidden if single machine e.g. Omag, Tablet, V2.x) */}
-          {!isSingleMachine && (
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between animate-in fade-in">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 font-extrabold text-xs border border-teal-200">
-                    Foto 2: LHP 2
-                  </span>
-                  {photos[1] && (
-                    <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Terisi</span>
-                    </span>
-                  )}
-                </div>
-                <div className="mt-3">
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    MESIN FILLING 2
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={filling2}
-                    className="w-full px-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                {photos[1] ? (
-                  <div className="relative group rounded-xl overflow-hidden border border-slate-300 bg-slate-900 aspect-4/3 flex items-center justify-center">
-                    <img src={photos[1]} alt="LHP 2" className="w-full h-full object-contain" />
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePhoto(1)}
-                      className="absolute top-2 right-2 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg opacity-90 transition-opacity cursor-pointer"
-                      title="Hapus foto"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-teal-500 transition-colors bg-slate-50/50">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <Camera className="w-8 h-8 text-slate-400" />
-                      <span className="text-xs text-slate-500 font-medium">Ambil foto LHP 2</span>
-                      <div className="flex items-center space-x-2 w-full pt-1">
-                        <label className="flex-1 cursor-pointer bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
-                          <Camera className="w-3.5 h-3.5" />
-                          <span>Kamera</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            hidden
-                            onChange={(e) => handleFileChange(1, e)}
-                          />
-                        </label>
-                        <label className="flex-1 cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>Galeri</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={(e) => handleFileChange(1, e)}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Slot 2: Foto 3 */}
+          {/* Slot 1: Foto Sachet 1 */}
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 font-extrabold text-xs border border-teal-200">
                   {getSlot2Label()}
                 </span>
-                {photos[2] && (
+                {photos[1] && (
                   <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>Terisi</span>
@@ -429,12 +356,12 @@ export const InputSample: React.FC<InputSampleProps> = ({
             </div>
 
             <div className="mt-4">
-              {photos[2] ? (
+              {photos[1] ? (
                 <div className="relative group rounded-xl overflow-hidden border border-slate-300 bg-slate-900 aspect-4/3 flex items-center justify-center">
-                  <img src={photos[2]} alt="Slot 2" className="w-full h-full object-contain" />
+                  <img src={photos[1]} alt="Sachet 1" className="w-full h-full object-contain" />
                   <button
                     type="button"
-                    onClick={() => handleRemovePhoto(2)}
+                    onClick={() => handleRemovePhoto(1)}
                     className="absolute top-2 right-2 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg opacity-90 transition-opacity cursor-pointer"
                     title="Hapus foto"
                   >
@@ -455,7 +382,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
                           accept="image/*"
                           capture="environment"
                           hidden
-                          onChange={(e) => handleFileChange(2, e)}
+                          onChange={(e) => handleFileChange(1, e)}
                         />
                       </label>
                       <label className="flex-1 cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
@@ -465,7 +392,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
                           type="file"
                           accept="image/*"
                           hidden
-                          onChange={(e) => handleFileChange(2, e)}
+                          onChange={(e) => handleFileChange(1, e)}
                         />
                       </label>
                     </div>
@@ -475,85 +402,87 @@ export const InputSample: React.FC<InputSampleProps> = ({
             </div>
           </div>
 
-          {/* Slot 3: Foto 4 */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 font-extrabold text-xs border border-teal-200">
-                  {getSlot3Label()}
-                </span>
-                {photos[3] && (
-                  <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Terisi</span>
+          {/* Slot 2: Foto Sachet 2 (Hidden if single machine) */}
+          {!isSingleMachine && (
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between animate-in fade-in">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 font-extrabold text-xs border border-teal-200">
+                    {getSlot3Label()}
                   </span>
+                  {photos[2] && (
+                    <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Terisi</span>
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    SUMBER SACHET 2
+                  </label>
+                  <div className="px-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-800 truncate">
+                    {filling2}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                {photos[2] ? (
+                  <div className="relative group rounded-xl overflow-hidden border border-slate-300 bg-slate-900 aspect-4/3 flex items-center justify-center">
+                    <img src={photos[2]} alt="Sachet 2" className="w-full h-full object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(2)}
+                      className="absolute top-2 right-2 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg opacity-90 transition-opacity cursor-pointer"
+                      title="Hapus foto"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-teal-500 transition-colors bg-slate-50/50">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <Camera className="w-8 h-8 text-slate-400" />
+                      <span className="text-xs text-slate-500 font-medium">Ambil foto sachet 2</span>
+                      <div className="flex items-center space-x-2 w-full pt-1">
+                        <label className="flex-1 cursor-pointer bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Kamera</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            hidden
+                            onChange={(e) => handleFileChange(2, e)}
+                          />
+                        </label>
+                        <label className="flex-1 cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Galeri</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(e) => handleFileChange(2, e)}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="mt-3">
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  {isOmag ? 'KEMASAN SEKUNDER' : isTablet ? 'KEMASAN BLISTER' : isV2 ? 'KEMASAN DUS' : 'SUMBER SACHET 2'}
-                </label>
-                <div className="px-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-800 truncate">
-                  {isOmag ? 'Dus / Plastik' : isTablet ? 'Blister' : isV2 ? 'Dus' : filling2}
-                </div>
-              </div>
             </div>
+          )}
 
-            <div className="mt-4">
-              {photos[3] ? (
-                <div className="relative group rounded-xl overflow-hidden border border-slate-300 bg-slate-900 aspect-4/3 flex items-center justify-center">
-                  <img src={photos[3]} alt="Slot 3" className="w-full h-full object-contain" />
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePhoto(3)}
-                    className="absolute top-2 right-2 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg opacity-90 transition-opacity cursor-pointer"
-                    title="Hapus foto"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-teal-500 transition-colors bg-slate-50/50">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <Camera className="w-8 h-8 text-slate-400" />
-                    <span className="text-xs text-slate-500 font-medium">Ambil foto {isOmag ? 'dus/plastik' : isTablet ? 'blister' : isV2 ? 'dus' : 'sachet 2'}</span>
-                    <div className="flex items-center space-x-2 w-full pt-1">
-                      <label className="flex-1 cursor-pointer bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>Kamera</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          hidden
-                          onChange={(e) => handleFileChange(3, e)}
-                        />
-                      </label>
-                      <label className="flex-1 cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Galeri</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) => handleFileChange(3, e)}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Slot 4: Foto 5 - Box dan Dus */}
+          {/* Slot 3: Foto Box */}
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between sm:col-span-2 lg:col-span-1">
             <div>
                <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-extrabold text-xs border border-amber-200">
-                  {isOmag || isTablet || isV2_1_3 ? 'Foto 5: Box' : 'Foto 5: Box dan Dus'}
+                  {isOmag || isTablet || isV2_1_3 ? 'Foto Box' : 'Foto Box dan Dus'}
                 </span>
-                {photos[4] && (
+                {photos[3] && (
                   <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>Terisi</span>
@@ -574,12 +503,12 @@ export const InputSample: React.FC<InputSampleProps> = ({
             </div>
 
             <div className="mt-4">
-              {photos[4] ? (
+              {photos[3] ? (
                 <div className="relative group rounded-xl overflow-hidden border border-slate-300 bg-slate-900 aspect-4/3 flex items-center justify-center">
-                  <img src={photos[4]} alt="Box dan Dus" className="w-full h-full object-contain" />
+                  <img src={photos[3]} alt="Box" className="w-full h-full object-contain" />
                   <button
                     type="button"
-                    onClick={() => handleRemovePhoto(4)}
+                    onClick={() => handleRemovePhoto(3)}
                     className="absolute top-2 right-2 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg opacity-90 transition-opacity cursor-pointer"
                     title="Hapus foto"
                   >
@@ -600,7 +529,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
                           accept="image/*"
                           capture="environment"
                           hidden
-                          onChange={(e) => handleFileChange(4, e)}
+                          onChange={(e) => handleFileChange(3, e)}
                         />
                       </label>
                       <label className="flex-1 cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all">
@@ -610,7 +539,7 @@ export const InputSample: React.FC<InputSampleProps> = ({
                           type="file"
                           accept="image/*"
                           hidden
-                          onChange={(e) => handleFileChange(4, e)}
+                          onChange={(e) => handleFileChange(3, e)}
                         />
                       </label>
                     </div>
